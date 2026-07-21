@@ -1,6 +1,6 @@
 import QtQuick 2.12
 import Quickshell
-import Quickshell.Io
+import Quickshell.Services.Pipewire
 import QtQml 2.15
 
 Item {
@@ -15,10 +15,11 @@ Item {
     property color hudColorDim: "#80ffffff"
     property bool  showLines: true
 
-    property int  percent: 0
-    property bool muted: false
-    property int  pollMs: 1000
-    property var  volumeCmd: ["bash","-lc","wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk '{m=$0; v=$2; gsub(/Volume:/,\"\",v); printf \"%d %s\\n\", v*100, (index(m,\"MUTED\")?\"muted\":\"on\") }'"]
+    readonly property var sink: Pipewire.defaultAudioSink
+    property int percent: sink && sink.audio
+        ? Math.max(0, Math.min(100, Math.round(sink.audio.volume * 100)))
+        : 0
+    property bool muted: !!(sink && sink.audio && sink.audio.muted)
 
     // Icon properties
     property url iconSource: Qt.resolvedUrl("../../assets/volume.png")   
@@ -30,6 +31,10 @@ Item {
 
     width:  rectW + 2*s
     height: rectH + topMargin + s + (iconSource==""?0:iconSize+8)
+
+    PwObjectTracker {
+        objects: root.sink ? [root.sink] : []
+    }
 
     Repeater {
         id: nodes
@@ -95,21 +100,4 @@ Item {
         layer.enabled: true
     }
 
-    Process {
-        id: p
-        command: volumeCmd
-        running: false
-        stdout: SplitParser {
-            onRead: data => {
-                var t = (data || "").toString().trim().split(/\s+/)
-                var v = parseInt(t[0], 10)
-                if (!isNaN(v)) root.percent = Math.max(0, Math.min(100, v))
-                if (t.length > 1) root.muted = (t[1].toLowerCase().indexOf("mut") === 0)
-            }
-        }
-    }
-    Timer {
-        interval: root.pollMs; running: true; repeat: true; triggeredOnStart: true
-        onTriggered: if (!p.running) p.running = true
-    }
 }

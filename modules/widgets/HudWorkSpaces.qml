@@ -1,7 +1,6 @@
 import QtQuick 2.12
 import QtQml 2.15
 import Quickshell
-import Quickshell.Io
 import Quickshell.Hyprland
 
 Item {
@@ -21,7 +20,6 @@ Item {
     property int indicatorPadding: 12
     property int indicatorNodeSize: 10
     property bool showIndicator: true
-    property int pollInterval: 100
     property int indicatorAnimDuration: 200
 
     property color emptyColor: '#6e000000'
@@ -120,24 +118,15 @@ Item {
         updateIndicatorForIndex(idx)
     }
 
-    function handleWorkspacePayload(payload) {
-        if (!payload) return
-        var text = payload.trim()
-        if (!text.length) return
+    function syncWorkspaces() {
+        if (workspaceModel.count === 0)
+            initializeModel()
 
-        var data
-        try {
-            data = JSON.parse(text)
-        } catch (e) {
-            console.warn("Hyprland workspace parse error:", e)
-            return
-        }
-        if (!Array.isArray(data)) return
-
+        var data = Hyprland.workspaces.values
         var seen = {}
         for (var i = 0; i < data.length; ++i) {
             var ws = data[i]
-            if (!ws || ws.special) continue
+            if (!ws || ws.id <= 0) continue
 
             var id = parseInt(ws.id, 10)
             if (!isFinite(id)) continue
@@ -146,9 +135,8 @@ Item {
             if (idx < 0) continue
             seen[idx] = true
 
-            var windows = 0
-            if (ws.windows !== undefined) windows = ws.windows
-            else if (ws.clients !== undefined) windows = ws.clients
+            var ipcData = ws.lastIpcObject || {}
+            var windows = ipcData.windows !== undefined ? ipcData.windows : 0
 
             var occupied = windows > 0
             var item = workspaceModel.get(idx)
@@ -164,39 +152,9 @@ Item {
             if (!seen[j] && workspaceModel.get(j).occupied)
                 workspaceModel.setProperty(j, "occupied", false)
         }
-    }
 
-    function handleActivePayload(payload) {
-        if (!payload) return
-        var text = payload.trim()
-        if (!text.length) return
-
-        var data
-        try {
-            data = JSON.parse(text)
-        } catch (e) {
-            console.warn("Hyprland active workspace parse error:", e)
-            return
-        }
-
-        var id = data && data.id !== undefined ? parseInt(data.id, 10) : NaN
-        if (!isFinite(id) && data && data.workspace && data.workspace.id !== undefined)
-            id = parseInt(data.workspace.id, 10)
-        if (!isFinite(id)) return
-
-        setActiveWorkspace(id)
-    }
-
-    function requestRefresh() {
-        if (workspaceModel.count === 0) initializeModel()
-        if (!workspaceProc.running) {
-            workspaceProc.buffer = ""
-            workspaceProc.running = true
-        }
-        if (!activeProc.running) {
-            activeProc.buffer = ""
-            activeProc.running = true
-        }
+        var focused = Hyprland.focusedWorkspace
+        setActiveWorkspace(focused ? focused.id : -1)
     }
 
     onWorkspaceCountChanged: {
@@ -214,54 +172,29 @@ Item {
 
     Component.onCompleted: {
         initializeModel()
-        requestRefresh()
+        Hyprland.refreshWorkspaces()
+        refreshTimer.restart()
     }
 
     Timer {
-        id: pollTimer
-        interval: pollInterval
-        running: true
-        repeat: true
-        triggeredOnStart: true
-        onTriggered: requestRefresh()
-    }
-
-    Process {
-        id: workspaceProc
-        command: ["hyprctl", "workspaces", "-j"]
-        running: false
-        property string buffer: ""
-        stdout: SplitParser {
-            onRead: data => workspaceProc.buffer += data
-        }
-        onRunningChanged: {
-            if (!running && workspaceProc.buffer.length > 0)
-                root.handleWorkspacePayload(workspaceProc.buffer)
-            if (!running) workspaceProc.buffer = ""
-        }
-    }
-
-    Process {
-        id: activeProc
-        command: ["hyprctl", "activeworkspace", "-j"]
-        running: false
-        property string buffer: ""
-        stdout: SplitParser {
-            onRead: data => activeProc.buffer += data
-        }
-        onRunningChanged: {
-            if (!running && activeProc.buffer.length > 0)
-                root.handleActivePayload(activeProc.buffer)
-            if (!running) activeProc.buffer = ""
-        }
+        id: refreshTimer
+        interval: 60
+        repeat: false
+        onTriggered: root.syncWorkspaces()
     }
 
     Connections {
         target: Hyprland
         function onFocusedWorkspaceChanged() {
-            if (!activeProc.running) {
-                activeProc.buffer = ""
-                activeProc.running = true
+            root.syncWorkspaces()
+        }
+        function onRawEvent(event) {
+            var eventName = event.name || ""
+            if (eventName.indexOf("workspace") !== -1
+                    || eventName.indexOf("window") !== -1
+                    || eventName === "focusedmon") {
+                Hyprland.refreshWorkspaces()
+                refreshTimer.restart()
             }
         }
     }

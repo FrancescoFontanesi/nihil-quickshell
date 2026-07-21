@@ -38,22 +38,21 @@ Item {
         : brightnessUrl
 
 
-    Process {  
-        id: tailProc  
-        command: ["tail", "-n1", "-F", root.brightnessFile]  
-        running: false  
-        stdout: SplitParser {  
-            onRead: data => {  
-                const txt = (data || "").toString().trim();  
-                const v = parseInt(txt, 10);  
-                if (!isNaN(v))  
-                    root.percent = Math.max(0, Math.min(100, v));  
-            }  
-        }  
-        onRunningChanged: if (!running) running = true  
+    function updatePercent(rawValue) {
+        const value = parseInt(String(rawValue).trim(), 10)
+        if (!isNaN(value))
+            root.percent = Math.max(0, Math.min(100, value))
     }
 
-    Component.onCompleted: tailProc.running = true;
+    FileView {
+        id: brightnessView
+        path: root.brightnessFile
+        preload: true
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: root.updatePercent(text())
+    }
 
 
 

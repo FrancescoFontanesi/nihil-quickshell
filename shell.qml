@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Wayland
 import "./modules/layout"
 import "./modules/widgets"
+import "./modules/launcher"
 
 ShellRoot {
   id: root
@@ -93,6 +94,28 @@ ShellRoot {
     
     mask : clickThrough ? maskRegion : null  // <-- usa la proprietà clickThrough di LockHudp         
 
+  }
+
+  PanelWindow {
+    id: launcherWin
+    color: "transparent"
+    anchors { right: true; top: true; bottom: true; left: true }
+    implicitWidth: 1000
+    implicitHeight: 800
+    exclusiveZone: 0
+    mask: Region {}
+    exclusionMode: ExclusionMode.Ignore
+    aboveWindows: true
+
+    LauncherHud {
+      id: launcherHud
+      anchors.fill: parent
+      panelWindow: launcherWin
+      s: 8
+      gap: 12
+      rectW: launcherWin.implicitWidth
+      rectH: launcherWin.implicitHeight
+    }
   }
 
 

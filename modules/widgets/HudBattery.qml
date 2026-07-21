@@ -1,5 +1,5 @@
 import QtQuick 2.12
-import Quickshell.Io 
+import Quickshell.Services.UPower
 
 Item {
     id: root
@@ -15,43 +15,16 @@ Item {
     property color textColor: "#ffffff"
 
 
-    property int percent: 0
-    property bool charging: false
+    readonly property var battery: UPower.displayDevice
+    property int percent: battery && battery.ready
+        ? Math.max(0, Math.min(100, Math.round(battery.percentage * 100)))
+        : 0
+    property bool charging: battery && battery.ready && !UPower.onBattery
 
     function levelColor(p) {
         if (p <= 10) return "#ff0000"
         return "#ffffff"              
     }
-
-    Timer {
-        interval: 1000   
-        running: true
-        repeat: true
-        triggeredOnStart: true
-        onTriggered: batteryProcess.running = true
-    }
-
-    Process {
-        id: batteryProcess
-        command: ["/home/nihil/.config/hypr/scripts/battery.sh"]
-        running: false
-
-        stdout: SplitParser {
-            onRead: (data) => {
-                try {
-                    const obj = JSON.parse(data)
-                    if (obj.percent !== undefined)
-                        root.percent = Math.max(0, Math.min(100, obj.percent))
-                    if (obj.charging !== undefined)
-                        root.charging = !!obj.charging
-                } catch(e) {
-                    console.warn("Battery JSON parse error:", data)
-                }
-            }
-        }
-    }
-
-
 
     // --- UI LAYOUT ---
     width: barWidth
