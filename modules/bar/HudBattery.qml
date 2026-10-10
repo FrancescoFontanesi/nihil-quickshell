@@ -1,30 +1,25 @@
+import "../common"
 import QtQuick 2.12
 import Quickshell.Services.UPower
 
 Item {
     id: root
 
+    // --- Drawer State ---
+    property bool drawerOpen: false
+
     // --- CONFIG UI ---
     property int segments: 10
     property int barWidth: 260
     property int barHeight: 28
-    property int radius: 8
+    property int radius: 0
     property int gap: 4
-    property color frameColor: "#80ffffff"
-    property color emptyColor: "#30ffffff"
-    property color textColor: "#ffffff"
-
 
     readonly property var battery: UPower.displayDevice
     property int percent: battery && battery.ready
         ? Math.max(0, Math.min(100, Math.round(battery.percentage * 100)))
         : 0
     property bool charging: battery && battery.ready && !UPower.onBattery
-
-    function levelColor(p) {
-        if (p <= 10) return "#ff0000"
-        return "#ffffff"              
-    }
 
     // --- UI LAYOUT ---
     width: barWidth
@@ -37,10 +32,11 @@ Item {
         height: barHeight
         radius: root.radius
         color: "transparent"
-        border.color: frameColor
-        border.width: 1
+        border.color: root.drawerOpen ? Hud.fg : (batteryMouse.containsMouse ? "#c0ffffff" : Hud.dim)
+        border.width: root.drawerOpen ? 2 : 1
+        Behavior on border.color { ColorAnimation { duration: 150 } }
 
-        // segmenti
+        // Segments
         Row {
             id: row
             anchors.fill: parent
@@ -54,19 +50,32 @@ Item {
                     height: row.height
                     radius: Math.min(root.radius * 0.6, height/4)
                     color: (index < Math.round(root.percent / (100/segments)))
-                           ? levelColor(root.percent)
-                           : emptyColor
+                           ? (root.percent <= 10 ? "#ff0000" : Hud.fg)
+                           : "#30ffffff"
                 }
             }
         }
     }
 
-    // testo percentuale
+    // Percentage label
     Text {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: frame.bottom
+        anchors.topMargin: 2
         text: (charging ? "+" : "") + root.percent + "%"
-        color: textColor
+        color: Hud.fg
+        font.family: Hud.font
         font.pixelSize: 14
+        font.weight: Font.Medium
     }
+
+    // --- Interactive Mouse Area to Toggle Drawer ---
+    MouseArea {
+        id: batteryMouse
+        anchors.fill: parent
+        cursorShape: Qt.PointingHandCursor
+        hoverEnabled: true
+        onClicked: root.drawerOpen = !root.drawerOpen
+    }
+
 }

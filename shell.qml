@@ -1,123 +1,134 @@
-// File: shell.qml
-//@ pragma UseQApplication
 import QtQuick 2.15
 import Quickshell
 import Quickshell.Wayland
-import "./modules/layout"
-import "./modules/widgets"
-import "./modules/launcher"
+import "./modules/common"
+import "./modules/bar"
+import "./modules/hud"
 
 ShellRoot {
-  id: root
+    id: root
 
-  // Edge assets (adjust to your paths)
-  property url topSrc:    Qt.resolvedUrl("./assets/top.png")
-  property url bottomSrc: Qt.resolvedUrl("./assets/bottom.png")
-  property url leftSrc:   Qt.resolvedUrl("./assets/left.png")
-  property url rightSrc:  Qt.resolvedUrl("./assets/right.png")
-
-  // 1) Edge reservation + (optional) drawing
-  EdgeOverlayLayout {
-    id: edgeLayout
-    thickness: 64
-    enableTop: true; enableBottom: true; enableLeft: true; enableRight: true
-    topSource: topSrc; bottomSource: bottomSrc; leftSource: leftSrc; rightSource: rightSrc
-    drawContent: true
-  }
-
-  // 2) Overlay (HUD + panel inside HUD rectangle)
-  PanelWindow {
-
-    property int leftMargin:-56
-
-    id: hudWin
-    color: "transparent"//'#38ffffff'
-    mask: Region {}                     // click-through
-    // Pick your edge and size; example shows right edge full-height.
-    anchors { left: true; top: true; bottom: true }
-    implicitWidth: 880
-    implicitHeight: 1500
-    // CRITICAL: do not reserve; overlap other reserved panels
-    exclusiveZone: 0 
-    exclusionMode: ExclusionMode.Ignore
-    // Draw above normal windows
-    aboveWindows: true
-    // Ensure we sit in the overlay layer (above Top where your borders live)
-    Component.onCompleted: {
-    if (hudWin.WlrLayershell) hudWin.WlrLayershell.layer = WlrLayer.Overlay
+    // Screen-edge chrome: top bar (clock, workspaces), bottom bar (battery, volume,
+    // brightness), decorative left/right strips, and their flyout drawers.
+    EdgeOverlayLayout {
+        thickness: 64
+        topSource: Qt.resolvedUrl("./assets/top.png")
+        bottomSource: Qt.resolvedUrl("./assets/bottom.png")
+        leftSource: Qt.resolvedUrl("./assets/left.png")
+        rightSource: Qt.resolvedUrl("./assets/right.png")
     }
-    margins{ left:leftMargin;bottom:14}
-    
-    ChatGPTHud {
-      id: hud
-      anchors.fill: parent
-      panelWindow: hudWin
-      focus: false
-      command: "/home/nihil/Extra/Chatgpt-PyGObject/chatgpt-wrapper"
-      // Geometry (tune as needed)
-      s: 8
-      rectW: 808
-      rectH: 1300
-      shiftX: 380
+
+    // Overlay HUDs: margins below are calibrated against the edge artwork.
+
+    // --- LEFT HUD: ChatGPT Companion ---
+    PanelWindow {
+        id: hudWin
+        WlrLayershell.layer: WlrLayer.Overlay
+        aboveWindows: true
+        color: "transparent"
+        mask: Region {} // Passthrough: input handled by external companion window
+
+        anchors { left: true; top: true; bottom: true }
+        implicitWidth: 880
+
+        // Margin calibration relative to left screen edge
+        property int leftMargin: -56
+        margins { left: leftMargin; bottom: 14 }
+
+        exclusiveZone: 0
+        exclusionMode: ExclusionMode.Ignore
+
+        ChatGPTHud {
+            anchors.fill: parent
+            panelWindow: hudWin
+            command: "/home/nihil/Extra/Chatgpt-PyGObject/chatgpt-wrapper"
+
+            // Geometry & Calibration
+            rectW: 808
+            rectH: 1300
+            shiftX: 380
+        }
     }
-  }
 
-  PanelWindow {
-    property int rightMargin: -72
-    property var maskRegion: Region {}
-    property bool clickThrough: true   
-    id: hudLock
-    color: "transparent"
-    anchors { right: true; top: true; bottom: true }
-    implicitWidth: 260
-    implicitHeight: 600
-    exclusiveZone: 0
-    exclusionMode: ExclusionMode.Ignore
-    aboveWindows: true
-    Component.onCompleted: {
-      if (hudLock.WlrLayershell) hudLock.WlrLayershell.layer = WlrLayer.Overlay 
+    // --- RIGHT HUD: System Controls & Lock/Connectivity ---
+    PanelWindow {
+        WlrLayershell.layer: WlrLayer.Top
+        aboveWindows: true
+        color: "transparent"
+        visible: lockHud.visualOpen
+        anchors { top: true; bottom: true; left: true; right: true }
+        exclusiveZone: 0
+        exclusionMode: ExclusionMode.Ignore
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: lockHud.triggerToggle()
+        }
     }
-    margins { right: rightMargin; bottom: 14 }
 
-    
+    PanelWindow {
+        id: hudLock
+        WlrLayershell.layer: WlrLayer.Overlay
+        aboveWindows: true
+        color: "transparent"
 
-    LockHud {                 // <-- usa il nuovo file
-      id: lockHud
-      anchors.fill: parent
-      panelWindow: hudLock            // <-- usa il suo panel
-      s: 8
-      rectW: 180
-      rectH: 600
-      shiftX: 80        
-      initX: 214      // <-- offset iniziale per tenerlo fuori schermo     
+        anchors { right: true; top: true; bottom: true }
+        implicitWidth: 850
+
+        // Margin calibration relative to right screen edge
+        property int rightMargin: -72
+        margins { right: rightMargin; bottom: 14 }
+
+        exclusiveZone: 0
+        exclusionMode: ExclusionMode.Ignore
+
+        // Click-through management (LockHud toggles clickThrough when deployed/undeployed)
+        property bool clickThrough: true
+        readonly property var emptyRegion: Region {}
+        mask: clickThrough ? emptyRegion : null
+
+        LockHud {
+            id: lockHud
+            anchors.fill: parent
+            panelWindow: hudLock
+
+            // Geometry & Calibration
+            shiftX: 200
+
+            onToggled: {
+                if (!lockHud.visualOpen && launcherHud.visualOpen)
+                    launcherHud.closeLauncher()
+            }
+        }
     }
-    
-    mask : clickThrough ? maskRegion : null  // <-- usa la proprietà clickThrough di LockHudp         
 
-  }
+    // --- CENTER HUD: Application Launcher ---
+    PanelWindow {
+        id: launcherWin
+        WlrLayershell.layer: WlrLayer.Overlay
+        aboveWindows: true
+        color: "transparent"
 
-  PanelWindow {
-    id: launcherWin
-    color: "transparent"
-    anchors { right: true; top: true; bottom: true; left: true }
-    implicitWidth: 1000
-    implicitHeight: 800
-    exclusiveZone: 0
-    mask: Region {}
-    exclusionMode: ExclusionMode.Ignore
-    aboveWindows: true
+        // Fullscreen overlay surface (LauncherHud dynamically sets panelWindow.mask)
+        anchors { left: true; right: true; top: true; bottom: true }
+        exclusiveZone: 0
+        exclusionMode: ExclusionMode.Ignore
+        mask: Region {}
 
-    LauncherHud {
-      id: launcherHud
-      anchors.fill: parent
-      panelWindow: launcherWin
-      s: 8
-      gap: 12
-      rectW: launcherWin.implicitWidth
-      rectH: launcherWin.implicitHeight
+        LauncherHud {
+            id: launcherHud
+            anchors.fill: parent
+            panelWindow: launcherWin
+
+            // Geometry & Calibration
+            s: 8
+            rectW: 1000
+            rectH: 800
+
+            onVisualOpenChanged: {
+                if (visualOpen && lockHud.visualOpen)
+                    lockHud.triggerToggle()
+            }
+        }
     }
-  }
-
-
-
 }

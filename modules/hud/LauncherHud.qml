@@ -1,3 +1,4 @@
+import "../common"
 import QtQuick 2.15
 import Quickshell
 import Quickshell.Hyprland
@@ -16,19 +17,16 @@ Item {
     property int gap: 12
     property int rectW: 600
     property int rectH: 400
-    property color hudColor: "#ffffff"
     property color hudColorDim: "#60ffffff"
     property color panelColor: "#e6101010"
-    property bool showLines: true
     property url imageSource: Qt.resolvedUrl("../../assets/wofi.png")
     property int maxResults: 80
 
     // Animation tuning.
-    property bool stagger: true
     property int staggerStep: 80
     property int animDur: 360
     property real overshoot: 0.4
-    readonly property int expandTotal: (stagger ? 3 * staggerStep : 0) + animDur
+    readonly property int expandTotal: 3 * staggerStep + animDur
 
     // Derived geometry.
     readonly property int collapsedSpan: 2 * s + gap
@@ -55,11 +53,15 @@ Item {
         appid: "launcher"
         name: "toggle"
         description: "Toggle launcher HUD"
-        onPressed: root.toggleLauncher()
+
+        onPressed: {
+            root.toggleLauncher()
+        }
     }
 
     Connections {
         target: Hyprland
+
         function onFocusedWorkspaceChanged() {
             if (root.visualOpen)
                 root.closeLauncher()
@@ -176,6 +178,10 @@ Item {
         return value ? String(value).toLocaleLowerCase().trim() : ""
     }
 
+    function pageStep() {
+        return Math.max(1, Math.floor(applicationsList.height / applicationsList.rowHeight))
+    }
+
     function matchScore(entry, query, tokens) {
         var name = normalize(entry.name)
         var genericName = normalize(entry.genericName)
@@ -228,23 +234,12 @@ Item {
             return String(left.entry.name).localeCompare(String(right.entry.name))
         })
 
-        var result = []
-        var count = Math.min(matches.length, maxResults)
-        for (var resultIndex = 0; resultIndex < count; resultIndex++)
-            result.push(matches[resultIndex].entry)
-        return result
+        return matches.slice(0, root.maxResults).map(function (m) { return m.entry })
     }
 
     onSearchTextChanged: Qt.callLater(resetSelection)
 
-    Component.onCompleted: {
-        if (panelWindow) {
-            if (panelWindow.WlrLayershell)
-                panelWindow.WlrLayershell.keyboardFocus = WlrKeyboardFocus.None
-            panelWindow.mask = inactiveInputRegion
-            panelWindow.focusable = false
-        }
-    }
+    Component.onCompleted: applyClosedState()
 
     // Content rectangle and launcher UI.
     Item {
@@ -268,12 +263,10 @@ Item {
                 source: root.imageSource
                 fillMode: Image.PreserveAspectCrop
                 smooth: true
-                opacity: 1.0
             }
         }
 
         Item {
-            id: launcherContent
             anchors {
                 fill: parent
                 leftMargin: Math.max(64, root.rectW * 0.13)
@@ -287,8 +280,8 @@ Item {
                 anchors { left: parent.left; right: parent.right; top: parent.top }
                 height: 28
                 text: "APPLICATION INDEX  //  SEARCH"
-                color: root.hudColor
-                font { family: "monospace"; pixelSize: 17; letterSpacing: 3; bold: true }
+                color: Hud.fg
+                font { family: Hud.font; pixelSize: 17; letterSpacing: 3; bold: true }
                 elide: Text.ElideRight
                 verticalAlignment: Text.AlignVCenter
             }
@@ -303,13 +296,13 @@ Item {
                 }
                 height: 62
                 color: searchInput.activeFocus ? "#ee161616" : "#d9121212"
-                border { width: searchInput.activeFocus ? 2 : 1; color: root.hudColor }
+                border { width: searchInput.activeFocus ? 2 : 1; color: Hud.fg }
 
                 Text {
                     anchors { left: parent.left; leftMargin: 18; verticalCenter: parent.verticalCenter }
                     text: ">"
-                    color: root.hudColor
-                    font { family: "monospace"; pixelSize: 24; bold: true }
+                    color: Hud.fg
+                    font { family: Hud.font; pixelSize: 24; bold: true }
                 }
 
                 TextInput {
@@ -322,10 +315,10 @@ Item {
                         top: parent.top
                         bottom: parent.bottom
                     }
-                    color: root.hudColor
-                    selectionColor: root.hudColor
+                    color: Hud.fg
+                    selectionColor: Hud.fg
                     selectedTextColor: "#101010"
-                    font { family: "monospace"; pixelSize: 22; letterSpacing: 1 }
+                    font { family: Hud.font; pixelSize: 22; letterSpacing: 1 }
                     verticalAlignment: TextInput.AlignVCenter
                     clip: true
                     selectByMouse: true
@@ -333,22 +326,22 @@ Item {
 
                     Keys.priority: Keys.BeforeItem
                     Keys.onPressed: function(event) {
+                        var ctrl = (event.modifiers & Qt.ControlModifier) !== 0
+                        var step = 0
+                        if (event.key === Qt.Key_Down || event.key === Qt.Key_Tab || (ctrl && event.key === Qt.Key_N))
+                            step = 1
+                        else if (event.key === Qt.Key_Up || event.key === Qt.Key_Backtab || (ctrl && event.key === Qt.Key_P))
+                            step = -1
+                        else if (event.key === Qt.Key_PageDown)
+                            step = root.pageStep()
+                        else if (event.key === Qt.Key_PageUp)
+                            step = -root.pageStep()
+
                         if (event.key === Qt.Key_Escape) {
                             root.closeLauncher()
                             event.accepted = true
-                        } else if (event.key === Qt.Key_Down || event.key === Qt.Key_Tab
-                                   || (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_N)) {
-                            root.moveSelection(1)
-                            event.accepted = true
-                        } else if (event.key === Qt.Key_Up || event.key === Qt.Key_Backtab
-                                   || (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_P)) {
-                            root.moveSelection(-1)
-                            event.accepted = true
-                        } else if (event.key === Qt.Key_PageDown) {
-                            root.moveSelection(Math.max(1, Math.floor(applicationsList.height / applicationsList.rowHeight)))
-                            event.accepted = true
-                        } else if (event.key === Qt.Key_PageUp) {
-                            root.moveSelection(-Math.max(1, Math.floor(applicationsList.height / applicationsList.rowHeight)))
+                        } else if (step !== 0) {
+                            root.moveSelection(step)
                             event.accepted = true
                         } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
                             root.launchSelected()
@@ -364,7 +357,7 @@ Item {
                         verticalCenter: parent.verticalCenter
                     }
                     visible: searchInput.text.length === 0
-                    text: "CERCA UN'APPLICAZIONE..."
+                    text: "SEARCH APPLICATIONS..."
                     color: "#70ffffff"
                     font: searchInput.font
                     elide: Text.ElideRight
@@ -381,17 +374,6 @@ Item {
                 }
             }
 
-            Text {
-                id: footerLabel
-                anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
-                height: 26
-                text: ""
-                color: root.hudColorDim
-                font { family: "monospace"; pixelSize: 12; letterSpacing: 1.5 }
-                elide: Text.ElideRight
-                verticalAlignment: Text.AlignVCenter
-            }
-
             ListView {
                 id: applicationsList
                 property int rowHeight: 68
@@ -400,15 +382,14 @@ Item {
                     right: parent.right
                     top: searchFrame.bottom
                     topMargin: 16
-                    bottom: footerLabel.top
-                    bottomMargin: 10
+                    bottom: parent.bottom
+                    bottomMargin: 36
                 }
                 clip: true
                 spacing: 6
                 model: root.filteredApplications
                 currentIndex: -1
                 boundsBehavior: Flickable.StopAtBounds
-                highlightMoveDuration: 100
 
                 delegate: Rectangle {
                     id: applicationDelegate
@@ -447,8 +428,8 @@ Item {
                         Text {
                             anchors { left: parent.left; right: parent.right; top: parent.top; topMargin: 11 }
                             text: applicationDelegate.modelData.name
-                            color: applicationDelegate.selected ? "#101010" : root.hudColor
-                            font { family: "monospace"; pixelSize: 18; bold: true }
+                            color: applicationDelegate.selected ? "#101010" : Hud.fg
+                            font { family: Hud.font; pixelSize: 18; bold: true }
                             elide: Text.ElideRight
                         }
 
@@ -458,7 +439,7 @@ Item {
                                   || applicationDelegate.modelData.comment
                                   || applicationDelegate.modelData.id
                             color: applicationDelegate.selected ? "#a0101010" : root.hudColorDim
-                            font { family: "monospace"; pixelSize: 12; letterSpacing: 0.5 }
+                            font { family: Hud.font; pixelSize: 12; letterSpacing: 0.5 }
                             elide: Text.ElideRight
                         }
                     }
@@ -476,102 +457,29 @@ Item {
                 Text {
                     anchors.centerIn: parent
                     visible: applicationsList.count === 0
-                    text: "NESSUNA APPLICAZIONE TROVATA"
+                    text: "NO APPLICATIONS FOUND"
                     color: root.hudColorDim
-                    font { family: "monospace"; pixelSize: 16; letterSpacing: 2 }
+                    font { family: Hud.font; pixelSize: 16; letterSpacing: 2 }
                 }
             }
         }
     }
 
-    // Four corner nodes that animate the HUD outline.
-    Repeater {
-        id: nodes
-        model: 4
-        delegate: Rectangle {
-            z: 3
-            width: root.s
-            height: root.s
-            radius: 2
-            color: root.hudColor
-
-            property bool isBottom: index >= 2
-            property bool isRight: (index % 2) === 1
-            property int stagIndex: root.visualOpen ? index : (3 - index)
-
-            x: root.visualOpen
-               ? (root.finalX + (isRight ? (root.rectW - root.s) : 0))
-               : (root.collapsedX + (isRight ? (root.s + root.gap) : 0))
-
-            y: root.visualOpen
-               ? (root.finalY + (isBottom ? (root.rectH - root.s) : 0))
-               : (root.collapsedY + (isBottom ? (root.s + root.gap) : 0))
-
-            Behavior on x {
-                enabled: root.expandPhase
-                SequentialAnimation {
-                    PauseAnimation { duration: root.stagger ? stagIndex * root.staggerStep : 0 }
-                    NumberAnimation {
-                        duration: root.animDur
-                        easing.type: Easing.OutBack
-                        easing.overshoot: root.overshoot
-                    }
-                }
-            }
-            Behavior on y {
-                enabled: root.expandPhase
-                SequentialAnimation {
-                    PauseAnimation { duration: root.stagger ? stagIndex * root.staggerStep : 0 }
-                    NumberAnimation {
-                        duration: root.animDur
-                        easing.type: Easing.OutBack
-                        easing.overshoot: root.overshoot
-                    }
-                }
-            }
-
-            onXChanged: lines.requestPaint()
-            onYChanged: lines.requestPaint()
-        }
-    }
-
-    Canvas {
-        id: lines
+    // Corner nodes and outline that animate with the HUD.
+    HudStaggerFrame {
         z: 2
         anchors.fill: parent
-        visible: root.showLines && (root.visualOpen || toDeploy.running || toUndeploy.running)
-
-        onPaint: {
-            var topLeft = nodes.itemAt(0)
-            var topRight = nodes.itemAt(1)
-            var bottomRight = nodes.itemAt(3)
-            var bottomLeft = nodes.itemAt(2)
-            if (!topLeft || !topRight || !bottomRight || !bottomLeft)
-                return
-
-            var context = getContext("2d")
-            context.clearRect(0, 0, width, height)
-            context.lineWidth = 2
-            context.lineJoin = "round"
-            context.lineCap = "round"
-            context.strokeStyle = root.hudColorDim
-
-            function midpoint(item) {
-                return item.mapToItem(lines, item.width / 2, item.height / 2)
-            }
-
-            var pointA = midpoint(topLeft)
-            var pointB = midpoint(topRight)
-            var pointC = midpoint(bottomRight)
-            var pointD = midpoint(bottomLeft)
-
-            context.beginPath()
-            context.moveTo(pointA.x, pointA.y)
-            context.lineTo(pointB.x, pointB.y)
-            context.lineTo(pointC.x, pointC.y)
-            context.lineTo(pointD.x, pointD.y)
-            context.closePath()
-            context.stroke()
-        }
+        open: root.visualOpen
+        animate: root.expandPhase
+        openRect: Qt.rect(root.finalX, root.finalY, root.rectW, root.rectH)
+        closedPos: Qt.point(root.collapsedX, root.collapsedY)
+        nodeSize: root.s
+        gap: root.gap
+        nodeRadius: 2
+        staggerStep: root.staggerStep
+        animDur: root.animDur
+        overshoot: root.overshoot
+        lineWidth: 2
+        lineColor: root.hudColorDim
     }
 }

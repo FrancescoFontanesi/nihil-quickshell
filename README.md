@@ -1,36 +1,40 @@
 # Nihil HUD
 
-A [Quickshell](https://quickshell.org/) configuration for Hyprland that builds a monochrome HUD interface: screen-edge frames, system indicators, workspaces, a GPT panel, session controls, and an application launcher.
+A [Quickshell](https://quickshell.org/) shell for Hyprland: a monochrome desktop frame with live system indicators and animated overlay panels for the calendar, hardware telemetry, connectivity, session controls, GPT, and application search.
 
-The project is written in QML and uses Quickshell's reactive services directly.
+The UI is written in QML. The edge bars stay on screen; interactive panels open over the desktop. The clock, battery, and session drawers close on an outside click. The screenshots below show the current interface on a 2160 × 1440 display.
+
+![Complete Nihil HUD on an empty workspace](docs/screenshots/full-hud.png)
 
 ## Table of Contents
 
-- [Features](#features)
+- [At a Glance](#at-a-glance)
 - [Dependencies](#dependencies)
 - [Installation](#installation)
 - [Hyprland Integration](#hyprland-integration)
 - [Components](#components)
   - [Edge Layout](#edge-layout)
   - [GPT HUD](#gpt-hud)
-  - [Lock HUD](#lock-hud)
+  - [Session and Connectivity HUD](#session-and-connectivity-hud)
   - [Battery, Volume, and Brightness HUD](#battery-volume-and-brightness-hud)
-  - [Clock and Workspaces HUD](#clock-and-workspaces-hud)
+  - [Clock, Calendar, Weather, and Workspaces](#clock-calendar-weather-and-workspaces)
   - [Launcher HUD](#launcher-hud)
 - [Repository Structure](#repository-structure)
 - [Customization](#customization)
 - [Troubleshooting](#troubleshooting)
 
-## Features
+## At a Glance
 
-- Independent PNG frame on each of the four screen edges.
-- Layer-shell panels that overlap windows without changing their layout.
-- Animated GPT HUD connected to an external wrapper.
-- Suspend, reboot, and shutdown controls.
-- Battery status through UPower and volume status through PipeWire.
-- Workspaces updated from Hyprland events.
-- Brightness updated through a file watched by Quickshell.
-- Application launcher with desktop-entry indexing, search, keyboard navigation, and application launching.
+| Area | What it does |
+| --- | --- |
+| Four edges | Draws the PNG frame; top and bottom host the live widgets. |
+| Top bar | Shows the clock/date and ten Hyprland workspaces. Click the clock for calendar and weather. |
+| Bottom bar | Shows battery, default audio sink, and brightness. Click the battery for hardware telemetry. |
+| Left overlay | Opens an external GPT wrapper with `SUPER + M`. |
+| Right overlay | Opens session, Wi‑Fi, Bluetooth, airplane-mode, and power-profile controls with `SUPER + Escape`. |
+| Center overlay | Searches and launches installed desktop applications with `SUPER + Space`. |
+
+The drawers and session overlay are clickable without moving application windows. The status bars use Quickshell services and compositor events where available; the weather panel fetches data from `wttr.in` when opened.
 
 ## Dependencies
 
@@ -43,15 +47,24 @@ The project is written in QML and uses Quickshell's reactive services directly.
 | Qt 6 / QtQuick / QtQml | Interface components and animations |
 | PipeWire + WirePlumber | Default audio sink status |
 | UPower | Battery percentage and charging state |
-| `brightnessctl` | Brightness increase and decrease |
+| `brightnessctl` | Brightness control and percentage readout |
+| `udevadm` | Backlight change events for the brightness HUD |
+| NetworkManager (`nmcli`) | Wi‑Fi state, scans, connections, and saved networks |
+| BlueZ | Bluetooth power, discovery, pairing, and connections, through Quickshell's `Quickshell.Bluetooth` service over D-Bus |
+| `rfkill` | Airplane-mode control |
+| power-profiles-daemon | Power-saver/eco profile, through Quickshell's `PowerProfiles` service over D-Bus |
+| `curl` | Weather request to `wttr.in` |
+| `hyprctl` | Workspace switching from the top bar |
+| systemd (`systemctl`) | Suspend, reboot, and power-off buttons |
+| Bash and `/proc`/`sysfs` | CPU, RAM, temperature, and battery-health telemetry |
 | `pamixer` | Volume keys configured in `hyprland.conf` |
 | PulseAudio tools (`pactl`) | Microphone toggle configured in `hyprland.conf` |
-| Bash, GNU coreutils, and `awk` | Brightness helper scripts |
 
 The Quickshell build must include these QML modules:
 
 ```text
 Quickshell
+Quickshell.Bluetooth
 Quickshell.Hyprland
 Quickshell.Io
 Quickshell.Services.Pipewire
@@ -65,11 +78,9 @@ Quickshell.Widgets
 | Dependency | Purpose |
 | --- | --- |
 | External ChatGPT wrapper | Window controlled by `ChatGPTHud.qml` through `--toggle` |
-| `jq` | Only used by the legacy `scripts/battery.sh`; the HUD reads UPower directly |
-| `grim`, `slurp`, `wl-copy` | Screenshot shortcuts available in the example Hyprland configuration |
-| A monospace font | Launcher and indicator text |
+| Rajdhani font | Intended typography; Qt falls back to sans-serif if unavailable |
 
-Session buttons use `systemctl`, so a systemd-based system is required.
+Weather needs network access; all other panels remain available if the weather request fails.
 
 ## Installation
 
@@ -78,8 +89,6 @@ Clone the repository into the path expected by `hyprland.conf`:
 ```bash
 mkdir -p ~/.config/quickshell
 git clone https://github.com/FrancescoFontanesi/nihil.git ~/.config/quickshell/nihil
-chmod +x ~/.config/quickshell/nihil/scripts/*.sh
-mkdir -p ~/.config/quickshell/nihil/tmp
 ```
 
 Run it manually for the first check:
@@ -88,17 +97,15 @@ Run it manually for the first check:
 quickshell -p ~/.config/quickshell/nihil/
 ```
 
-Before using the project on another system, update the absolute paths described in [Customization](#customization).
+Install the dependencies above through your distribution first. Before using the project on another system, review the absolute paths and hardware assumptions in [Customization](#customization). The GPT wrapper is optional, but its command in `shell.qml` must point to a real executable if you want that panel to work.
 
 ## Hyprland Integration
 
-The following lines are currently used in `hyprland.conf`. In the original setup, the file is located at `~/.config/hypr/hyprland.conf`.
+These are the relevant lines from the local `~/.config/hypr/hyprland.conf`.
 
 > Note: `hyprland.conf` is not included in this repository; the blocks below are ready to copy into your own configuration.
 
 ### Autostart
-
-Lines 37 and 39 of the original file:
 
 ```ini
 exec-once = quickshell -p ~/.config/quickshell/nihil/
@@ -108,8 +115,6 @@ exec-once = /home/nihil/Extra/Chatgpt-PyGObject/chatgpt-wrapper --background
 The second line is only required for the GPT HUD and must be updated to match your wrapper location.
 
 ### Quickshell Global Shortcuts
-
-Lines 178, 186, and 187 of the original file:
 
 ```ini
 $mainMod = SUPER
@@ -123,13 +128,11 @@ The format is `global, appid:name` and maps to the `GlobalShortcut` declarations
 
 | Shortcut | Quickshell target | Component |
 | --- | --- | --- |
-| `SUPER + Escape` | `lock:toggle` | `modules/widgets/LockHud.qml` |
-| `SUPER + M` | `hud:toggle` | `modules/widgets/ChatGPTHud.qml` |
-| `SUPER + Space` | `launcher:toggle` | `modules/launcher/LauncherHud.qml` |
+| `SUPER + Escape` | `lock:toggle` | `modules/hud/LockHud.qml` |
+| `SUPER + M` | `hud:toggle` | `modules/hud/ChatGPTHud.qml` |
+| `SUPER + Space` | `launcher:toggle` | `modules/hud/LauncherHud.qml` |
 
 ### GPT Wrapper Rules
-
-Lines 193–195 of the original file:
 
 ```ini
 windowrulev2 = float, class:^(chatgpt-wrapper)$
@@ -139,7 +142,7 @@ windowrulev2 = move 78 74, class:^(chatgpt-wrapper)$
 
 ### Volume and Brightness
 
-Lines 253–260 of the original file:
+Relevant `hyprland.conf` bindings:
 
 ```ini
 bind = ,122, exec, pamixer --decrease 5
@@ -147,102 +150,67 @@ bind = ,123, exec, pamixer --increase 5
 bind = ,121, exec, pamixer --toggle-mute
 bind = ,XF86AudioMicMute, exec, pactl set-source-mute @DEFAULT_SOURCE@ toggle
 
-bind = ,232, exec, ~/.config/hypr/scripts/decrement_brightness.sh
-bind = ,233, exec, ~/.config/hypr/scripts/increment_brightness.sh
+bind = ,232, exec, brightnessctl -c backlight set 10%-
+bind = ,233, exec, brightnessctl -c backlight set +10%
 ```
 
-The volume widget automatically detects changes through PipeWire. Brightness scripts must update `tmp/brightness_percent`; you can copy or symlink them into Hyprland's scripts directory:
-
-```bash
-mkdir -p ~/.config/hypr/scripts
-ln -s ~/.config/quickshell/nihil/scripts/decrement_brightness.sh ~/.config/hypr/scripts/decrement_brightness.sh
-ln -s ~/.config/quickshell/nihil/scripts/increment_brightness.sh ~/.config/hypr/scripts/increment_brightness.sh
-```
+The volume widget automatically detects changes through PipeWire. The brightness HUD reads `brightnessctl -m info` at startup and after backlight events; no helper script or temporary file is needed. Adjust the `backlight` device class if your system uses a different one.
 
 ## Components
 
 ### Edge Layout
 
-Main files:
+[`EdgeOverlayLayout.qml`](modules/bar/EdgeOverlayLayout.qml) draws `assets/top.png`, `bottom.png`, `left.png`, and `right.png` around the display. The top and bottom bars reserve space for their widgets; the flyout drawers and larger HUDs render as overlays. See the [full-screen overview](docs/screenshots/full-hud.png) above.
 
-- `modules/layout/EdgeOverlayLayout.qml`
-- `modules/layout/EdgeStrip.qml`
-- `assets/top.png`, `assets/bottom.png`, `assets/left.png`, `assets/right.png`
-
-`EdgeOverlayLayout` creates four `PanelWindow` instances, reserves the configured space with `exclusiveZone`, and draws PNGs along their corresponding edges. `EdgeStrip` applies the side-specific offset while keeping the window click-through.
-
-#### Screenshot
-
-
-![HUD layout on all four edges](docs/screenshots/full-hud.png)
+The three overlay HUDs (GPT, session, and launcher) animate their corner nodes with the shared [`HudStaggerFrame.qml`](modules/common/HudStaggerFrame.qml). The clock, workspaces, level bars, and drawers use the static [`HudCornerFrame.qml`](modules/common/HudCornerFrame.qml).
 
 ### GPT HUD
 
-Main files:
+[`ChatGPTHud.qml`](modules/hud/ChatGPTHud.qml) animates the left overlay when you press `SUPER + M` and toggles the external wrapper configured in `shell.qml`. The wrapper supplies the actual ChatGPT window and is **not** bundled with this repository. The HUD hides in fullscreen and closes on workspace changes.
 
-- `modules/widgets/ChatGPTHud.qml`
+![GPT panel with an empty conversation](docs/screenshots/gpt-hud.png)
 
-With `SUPER + M`, `ChatGPTHud` animates the left panel and invokes the wrapper configured in `shell.qml` with the `--toggle` argument. The panel closes when the workspace changes.
+### Session and Connectivity HUD
 
-#### Screenshot
+[`LockHud.qml`](modules/hud/LockHud.qml) opens on the right with `SUPER + Escape`. The left column holds the quick toggles for Wi‑Fi, Bluetooth, airplane mode, and eco mode, each with its PNG asset. The right column holds reboot, power off, and suspend; their buttons are rendered inline in `LockHud.qml`.
 
+Click Wi‑Fi or Bluetooth to expand a device drawer ([`DeviceMenu.qml`](modules/hud/DeviceMenu.qml)). It shows the current radio state, an on/off switch, available and saved/paired tabs, and connection actions. Wi‑Fi supports secured networks and saved connections; Bluetooth supports discovery, pairing, connecting, disconnecting, and removing paired devices. Click the same icon again—or outside the HUD—to close it. Airplane mode uses `rfkill`; eco mode selects the power-saver profile.
 
-![GPT HUD](docs/screenshots/hud-gpt.GIF)
+![Session and connectivity controls](docs/screenshots/lock-hud.png)
 
-### Lock HUD
-
-Main files:
-
-- [LockHud.qml](modules/widgets/LockHud.qml)
-- `modules/widgets/HudLockButton.qml`
-
-`LockHud` is an independent session-control widget. `SUPER + Escape` opens the right-side HUD through `lock:toggle`, where the user can suspend, reboot, or shut down the system. The widget closes automatically when switching workspaces and returns to click-through mode when collapsed.
-
-#### Screenshot
-
-![Lock HUD session controls](docs/screenshots/lock-hud.GIF)
+![Wi-Fi drawer while scanning, before network names appear](docs/screenshots/connectivity-wifi.png)
 
 ### Battery, Volume, and Brightness HUD
 
-Main files:
-
-- `modules/widgets/HudBattery.qml`
-- `modules/widgets/HudVolumeBar.qml`
-- `modules/widgets/HudbrightnessBar.qml`
-- `scripts/increment_brightness.sh`
-- `scripts/decrement_brightness.sh`
-
-The three indicators are placed in the bottom bar:
+The bottom bar combines [`HudBattery.qml`](modules/bar/HudBattery.qml), [`HudVolumeBar.qml`](modules/bar/HudVolumeBar.qml), and [`HudBrightnessBar.qml`](modules/bar/HudBrightnessBar.qml):
 
 - Battery reads percentage and power status directly from UPower.
-- Volume watches the default sink through PipeWire and indicates mute state.
-- Brightness watches `tmp/brightness_percent` through `FileView`, without keeping a `tail` process running.
+- Volume tracks the default PipeWire sink and marks mute state.
+- Brightness listens for backlight events and reads the current percentage with `brightnessctl`; no helper script or temporary file is required.
 
-#### Screenshot
+The volume and brightness bars share [`HudLevelBar.qml`](modules/bar/HudLevelBar.qml) as their base.
 
-![Battery, volume, and brightness HUD](docs/screenshots/system-state.GIF)
+Click the battery bar for [`HudBatteryDrawer.qml`](modules/bar/HudBatteryDrawer.qml): charge/discharge estimate, energy rate, battery health and cycle count, CPU usage and temperature, and RAM use. Telemetry runs only while the drawer is open; a click outside closes it.
 
-### Clock and Workspaces HUD
+![Bottom status bar: brightness, battery, and volume](docs/screenshots/bottom-status.png)
 
-Main files:
+![Battery and hardware telemetry drawer](docs/screenshots/battery-telemetry.png)
 
-- `modules/widgets/HudClock.qml`
-- `modules/widgets/HudWorkSpaces.qml`
+### Clock, Calendar, Weather, and Workspaces
 
-The top bar shows time, date, and ten workspaces. The indicator distinguishes active and occupied workspaces; updates come from Hyprland events rather than periodic `hyprctl` processes.
+[`HudClock.qml`](modules/bar/HudClock.qml) shows local time and date. [`HudCornerFrame.qml`](modules/common/HudCornerFrame.qml) draws the static corner-node frame shared by the clock, workspaces, the level bars, and the drawers.
 
-#### Screenshot
+Click it to open [`HudClockDrawer.qml`](modules/bar/HudClockDrawer.qml), which combines a navigable monthly calendar with current temperature, conditions, humidity, wind, and precipitation from `wttr.in`. The drawer closes on an outside click.
 
-![Clock and workspaces HUD](docs/screenshots/clock-workspaces-hud.GIF)
+[`HudWorkSpaces.qml`](modules/bar/HudWorkSpaces.qml) shows ten workspaces in two groups. Active and occupied workspaces have distinct states; click a number to switch. Occupancy comes from Hyprland's reactive workspace toplevels, so no polling is needed.
+
+![Top bar with clock and workspaces](docs/screenshots/top-clock-workspaces.png)
+
+![Calendar and live weather drawer](docs/screenshots/clock-calendar-weather.png)
 
 ### Launcher HUD
 
-Main files:
-
-- `modules/launcher/LauncherHud.qml`
-- `assets/wofi.png`
-
-`SUPER + Space` opens the launcher and immediately focuses the search field. Applications come from `DesktopEntries.applications`; results are sorted by relevance and launched through their desktop entry.
+[`LauncherHud.qml`](modules/hud/LauncherHud.qml) uses `assets/wofi.png` for its centered frame. `SUPER + Space` opens it with the search field focused. It indexes desktop entries, filters results as you type, and launches the selected application. Press `Escape` or the shortcut again to close it.
 
 Available controls:
 
@@ -256,9 +224,7 @@ Available controls:
 | `Enter` | Launches the selected application |
 | `Escape` | Closes the launcher |
 
-#### Screenshot
-
-![Application launcher](docs/screenshots/launcher-hud.png)
+![Launcher filtering installed applications for “terminal”](docs/screenshots/launcher-search.png)
 
 ## Repository Structure
 
@@ -267,10 +233,30 @@ Available controls:
 ├── assets/                 # PNG frames and icons
 ├── docs/screenshots/       # Screenshots used by the README
 ├── modules/
-│   ├── launcher/           # Application launcher
-│   ├── layout/             # Windows and edge strips
-│   └── widgets/            # HUDs and indicators
-├── scripts/                # Brightness helpers and legacy battery script
+│   ├── bar/                # Edge bars and their drawers
+│   │   ├── EdgeOverlayLayout.qml
+│   │   ├── HudBattery.qml
+│   │   ├── HudBatteryDrawer.qml
+│   │   ├── HudBrightnessBar.qml
+│   │   ├── HudClock.qml
+│   │   ├── HudClockDrawer.qml
+│   │   ├── HudLevelBar.qml     # shared base of the volume and brightness bars
+│   │   ├── HudVolumeBar.qml
+│   │   └── HudWorkSpaces.qml
+│   ├── common/             # Shared tokens and building blocks
+│   │   ├── Hud.qml             # singleton: font and colour tokens, fullscreen state
+│   │   ├── HudButton.qml
+│   │   ├── HudCornerFrame.qml  # static corner-node frame
+│   │   ├── HudDivider.qml
+│   │   ├── HudDrawer.qml       # drawer chassis
+│   │   ├── HudStaggerFrame.qml # animated corner-node frame for the overlay HUDs
+│   │   ├── HudSummary.qml
+│   │   └── StatRow.qml
+│   └── hud/                # Overlay HUDs
+│       ├── ChatGPTHud.qml
+│       ├── DeviceMenu.qml      # Wi-Fi and Bluetooth side drawer
+│       ├── LauncherHud.qml
+│       └── LockHud.qml
 ├── shell.qml               # Quickshell entry point
 └── README.md
 ```
@@ -279,11 +265,13 @@ Available controls:
 
 These values depend on the original system and should be reviewed after cloning:
 
-- `shell.qml`: GPT wrapper path and `PanelWindow` geometry.
-- `scripts/increment_brightness.sh` and `scripts/decrement_brightness.sh`: the `OUTFILE` variable and `BACKLIGHT` device class.
-- `modules/widgets/HudBattery.qml`: UPower automatically selects the display device.
-- `modules/layout/EdgeOverlayLayout.qml`: thickness, margins, and indicator positions.
-- `modules/launcher/LauncherHud.qml`: dimensions, maximum result count, and background asset.
+- `shell.qml`: GPT wrapper path, edge frame sources, and overlay geometry. Font and colour tokens are defined once in [`modules/common/Hud.qml`](modules/common/Hud.qml).
+- `modules/bar/EdgeOverlayLayout.qml`: edge thickness and indicator positions.
+- `modules/common/HudDrawer.qml`: shared `drawerMargin` and `titleSize`, used by the clock and battery drawers.
+- `modules/bar/HudClockDrawer.qml`: text sizes.
+- `modules/bar/HudBatteryDrawer.qml`: text sizes and telemetry interval. Its health/cycle reads use `BAT1`; the CPU temperature comes from the thermal zone with type `x86_pkg_temp`, falling back to `TCPU`, then `thermal_zone0`.
+- `modules/hud/LauncherHud.qml`: dimensions, maximum result count, and background asset.
+- `hyprland.conf`: use the device class supported by your `brightnessctl` installation.
 
 The included edge assets were designed for the original 2160 × 1440 layout; other resolutions may require geometry adjustments in `shell.qml` and `EdgeOverlayLayout.qml`.
 
@@ -307,19 +295,28 @@ hyprctl globalshortcuts
 
 `hud:toggle`, `lock:toggle`, and `launcher:toggle` should appear. After changing `hyprland.conf`, run `hyprctl reload`.
 
+### Connectivity Drawer Is Empty
+
+Check that NetworkManager and BlueZ are running and that `nmcli` works on its own. Wi‑Fi and Bluetooth lists are scanned when their respective drawer opens; Bluetooth discovery can take a few seconds.
+
+### Weather Is Unavailable
+
+The clock drawer asks `wttr.in` for JSON weather data. Check network access and `curl`; the calendar and clock still work without a weather response.
+
 ### The Launcher Does Not Receive Input
 
 Check that `LauncherHud.qml` sets `WlrKeyboardFocus.Exclusive` while opening and that no conflicting focus grab is active.
 
 ### Brightness Does Not Update
 
-Check the watched file:
+Check that `brightnessctl` can read the current backlight and that `udevadm` receives backlight events:
 
 ```bash
-cat ~/.config/quickshell/nihil/tmp/brightness_percent
+brightnessctl -m info
+udevadm monitor -s backlight -u
 ```
 
-If it does not exist, run one of the brightness scripts and check `BACKLIGHT` and `OUTFILE`.
+If the percentage is not updated after pressing a brightness key, check the Hyprland binds above and the device class passed to `brightnessctl`.
 
 ### Runtime Logs
 
