@@ -12,7 +12,7 @@ Item {
     readonly property color fg: chip ? Hud.cnGround : ink
 
     implicitWidth: row.implicitWidth + (chip ? 12 : 0)
-    implicitHeight: 16
+    implicitHeight: 14
 
     CnCut {
         anchors.fill: parent
@@ -93,9 +93,9 @@ Item {
             text: st.code
             color: st.fg
             font.family: Hud.mono
-            font.pixelSize: 11
+            font.pixelSize: 9
             font.weight: Font.Medium
-            font.letterSpacing: 0.66
+            font.letterSpacing: 0.54
         }
     }
 }

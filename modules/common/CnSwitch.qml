@@ -1,7 +1,7 @@
 import QtQuick 2.15
 
-// Machined switch (cyber-nihilism Switch): 48 × 24 track cut tl + br, 16px thumb,
-// explicit ON / OFF word. On = inverted track, thumb travels 24px.
+// Machined switch (cyber-nihilism Switch, compact): 40 × 20 track cut tl + br, 14px thumb,
+// explicit ON / OFF word. On = inverted track, thumb travels 20px.
 Item {
     id: sw
     property bool checked: false
@@ -10,12 +10,12 @@ Item {
 
     readonly property bool hovered: mouse.containsMouse && enabled
 
-    implicitWidth: 48 + 8 + stateLabel.implicitWidth
-    implicitHeight: 24
+    implicitWidth: 40 + 8 + stateLabel.implicitWidth
+    implicitHeight: 20
 
     CnCut {
-        width: 48
-        height: 24
+        width: 40
+        height: 20
         tl: 4
         br: 4
         fill: sw.checked ? Hud.cnInk : Hud.cnGround
@@ -24,10 +24,10 @@ Item {
     }
 
     CnCut {
-        width: 16
-        height: 16
-        y: 4
-        x: sw.checked ? 28 : 4
+        width: 14
+        height: 14
+        y: 3
+        x: sw.checked ? 23 : 3
         br: 4
         fill: sw.checked ? Hud.cnGround : (sw.enabled ? Hud.cnInk : Hud.cnTextMuted)
         edge: "transparent"
@@ -36,14 +36,14 @@ Item {
 
     Text {
         id: stateLabel
-        x: 56
+        x: 48
         anchors.verticalCenter: parent.verticalCenter
         text: sw.busy ? "LDG" : (sw.checked ? "ON" : "OFF")
         color: sw.checked ? Hud.cnInk : Hud.cnTextSecondary
         font.family: Hud.mono
-        font.pixelSize: 11
+        font.pixelSize: 9
         font.weight: Font.Medium
-        font.letterSpacing: 0.66
+        font.letterSpacing: 0.54
     }
 
     MouseArea {

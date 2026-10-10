@@ -14,7 +14,7 @@ Rectangle {
 
     // ======== STATE ========
     property int devicePanelWidth: 300
-    readonly property int contentWidth: devicePanelWidth - 32
+    readonly property int contentWidth: devicePanelWidth - 24
     property string menu: ""                 // "" | "wifi" | "bluetooth"
     property string listFilter: "available"  // "available" | "saved"
     property var authNet: null               // network awaiting a passphrase
@@ -148,7 +148,7 @@ Rectangle {
     // Fixed width: nothing reflows while the root animates its width.
     Item {
         id: body
-        x: 16
+        x: 12
         width: deviceMenu.contentWidth
         height: parent.height
         transform: Translate { id: bodyShift }
@@ -162,27 +162,27 @@ Rectangle {
 
         // Header
         Text {
-            x: 0; y: 16
+            x: 0; y: 14
             width: parent.width
             text: deviceMenu.isWifi
                   ? "NET · " + wifi.device.toUpperCase()
                   : "BT · " + (bluetooth.adapter ? String(bluetooth.adapter.adapterId).toUpperCase() : "NO ADAPTER")
             color: Hud.cnTextMuted
             font.family: Hud.mono
-            font.pixelSize: 10
-            font.letterSpacing: 1.2
+            font.pixelSize: 9
+            font.letterSpacing: 1.0
             elide: Text.ElideRight
         }
 
         Text {
             id: title
-            x: 0; y: 30
+            x: 0; y: 26
             text: deviceMenu.isWifi ? "WIRELESS" : "BLUETOOTH"
             color: Hud.cnInk
             font.family: Hud.font
-            font.pixelSize: 22
+            font.pixelSize: 14
             font.weight: Font.DemiBold
-            font.letterSpacing: 0.44
+            font.letterSpacing: 1.2
         }
 
         CnSwitch {
@@ -201,9 +201,9 @@ Rectangle {
         // Status strip
         Item {
             id: statusStrip
-            x: 0; y: 64
+            x: 0; y: 48
             width: parent.width
-            height: 24
+            height: 20
 
             CnStatus {
                 id: statusMark
@@ -221,8 +221,8 @@ Rectangle {
                 text: deviceMenu.status.text
                 color: Hud.cnTextSecondary
                 font.family: Hud.mono
-                font.pixelSize: 11
-                font.letterSpacing: 0.66
+                font.pixelSize: 9
+                font.letterSpacing: 0.54
                 elide: Text.ElideRight
             }
 
@@ -230,10 +230,10 @@ Rectangle {
                 id: scanBtn
                 anchors.right: parent.right
                 y: 0
-                height: 24
+                height: 20
                 width: implicitWidth
                 text: "SCAN"
-                textSize: 12
+                textSize: 9
                 enabled: deviceMenu.isWifi ? (wifi.enabled && !wifi.scanning) : (bluetooth.enabled && !bluetooth.discovering)
                 onClicked: {
                     if (deviceMenu.isWifi) wifi.refresh(true)
@@ -243,16 +243,16 @@ Rectangle {
         }
 
         Rectangle {
-            x: 0; y: 100
+            x: 0; y: 76
             width: parent.width
             height: 1
             color: Hud.cnBorderPassive
         }
 
         CnSegmented {
-            x: 0; y: 112
+            x: 0; y: 84
             width: parent.width
-            height: 32
+            height: 26
             items: deviceMenu.isWifi
                    ? [{ key: "available", label: "AVAILABLE", count: wifi.networks.length },
                       { key: "saved", label: "SAVED", count: wifi.saved.length }]
@@ -265,12 +265,12 @@ Rectangle {
         // Network / device list
         ListView {
             id: list
-            x: 0; y: 156
+            x: 0; y: 118
             width: parent.width
-            height: parent.height - 172
+            height: parent.height - 130
             visible: !deviceMenu.authOpen
             clip: true
-            spacing: 8
+            spacing: 4
             boundsBehavior: Flickable.StopAtBounds
             model: deviceMenu.isWifi
                    ? (deviceMenu.listFilter === "available" ? wifi.networks : wifi.saved)
@@ -299,7 +299,7 @@ Rectangle {
                 readonly property bool canForget: saved && !connected
                 readonly property bool hasActions: canDisconnect || canKey || canForget
                 readonly property bool showActions: hover.hovered && !busyRow && hasActions
-                readonly property int sideReserve: showActions ? actionRow.width + 12 : 96
+                readonly property int sideReserve: showActions ? actionRow.width + 12 : 72
                 readonly property string statusCode: busyRow ? "LDG" : errRow ? "ERR" : connected ? "ACT" : saved ? "IDL" : ""
                 readonly property string metaText: isWifi
                     ? (Boolean(modelData.secured) ? String(modelData.security).toUpperCase() : "OPEN")
@@ -309,7 +309,7 @@ Rectangle {
                       + " · " + (saved ? "PAIRED" : "NEW")
 
                 width: list.width
-                height: 52
+                height: 46
 
                 HoverHandler { id: hover }
 
@@ -331,25 +331,25 @@ Rectangle {
 
                 Text {
                     x: 12 + row.lead
-                    y: 9
+                    y: 7
                     width: row.width - x - 12 - row.sideReserve
                     text: row.isWifi ? modelData.ssid : modelData.name
                     color: row.rowInk
                     font.family: Hud.font
-                    font.pixelSize: 16
-                    font.weight: Font.Medium
+                    font.pixelSize: 12
+                    font.weight: Font.DemiBold
                     elide: Text.ElideRight
                 }
 
                 Text {
                     x: 12 + row.lead
-                    y: 31
+                    y: 26
                     width: row.width - x - 12 - row.sideReserve
                     text: row.metaText
                     color: row.rowMuted
                     font.family: Hud.mono
-                    font.pixelSize: 10
-                    font.letterSpacing: 1.2
+                    font.pixelSize: 9
+                    font.letterSpacing: 0.9
                     elide: Text.ElideRight
                 }
 
@@ -357,8 +357,8 @@ Rectangle {
                 Item {
                     id: meter
                     visible: row.isWifi && !row.showActions
-                    width: 18
-                    height: 13
+                    width: 14
+                    height: 10
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.right: stateMark.visible ? stateMark.left : parent.right
                     anchors.rightMargin: stateMark.visible ? 8 : 12
@@ -367,10 +367,10 @@ Rectangle {
                         model: 4
                         Rectangle {
                             required property int index
-                            x: index * 5
+                            x: index * 4
                             anchors.bottom: parent.bottom
-                            width: 3
-                            height: 4 + index * 3
+                            width: 2
+                            height: 4 + index * 2
                             color: row.level >= row.thresholds[index]
                                    ? row.rowInk
                                    : (row.connected ? Hud.cnGround : Hud.cnBorderActive)
@@ -411,10 +411,10 @@ Rectangle {
 
                     CnButton {
                         visible: row.canDisconnect
-                        height: 24
+                        height: 20
                         width: implicitWidth
                         text: "DISCONNECT"
-                        textSize: 11
+                        textSize: 9
                         onClicked: {
                             if (row.isWifi) wifi.disconnect(row.modelData)
                             else bluetooth.toggle(row.modelData)
@@ -422,19 +422,19 @@ Rectangle {
                     }
                     CnButton {
                         visible: row.canKey
-                        height: 24
+                        height: 20
                         width: implicitWidth
                         text: "KEY"
-                        textSize: 11
+                        textSize: 9
                         onClicked: deviceMenu.askPassword(row.modelData)
                     }
                     CnButton {
                         visible: row.canForget
-                        height: 24
+                        height: 20
                         width: implicitWidth
                         text: "FORGET"
                         variant: "critical"
-                        textSize: 11
+                        textSize: 9
                         onClicked: {
                             if (row.isWifi) wifi.forget(row.modelData)
                             else bluetooth.forget(row.modelData)
@@ -446,9 +446,9 @@ Rectangle {
 
         // Empty state, centred in the list area
         Item {
-            x: 0; y: 156
+            x: 0; y: 118
             width: parent.width
-            height: parent.height - 172
+            height: parent.height - 130
             visible: list.count === 0 && !deviceMenu.authOpen
 
             Column {
@@ -460,8 +460,8 @@ Rectangle {
                     text: deviceMenu.emptyInfo().code
                     color: Hud.cnTextMuted
                     font.family: Hud.mono
-                    font.pixelSize: 11
-                    font.letterSpacing: 0.66
+                    font.pixelSize: 9
+                    font.letterSpacing: 0.54
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -469,7 +469,7 @@ Rectangle {
                     text: deviceMenu.emptyInfo().hint
                     color: Hud.cnTextSecondary
                     font.family: Hud.font
-                    font.pixelSize: 14
+                    font.pixelSize: 11
                 }
             }
         }
@@ -477,9 +477,9 @@ Rectangle {
         // Passphrase entry (Wi-Fi, after KEY or a failed connect)
         Item {
             id: authView
-            x: 0; y: 156
+            x: 0; y: 118
             width: parent.width
-            height: parent.height - 156
+            height: parent.height - 118
             visible: deviceMenu.authOpen
             transform: Translate { id: authShift }
             onVisibleChanged: if (visible) authIn.restart()
@@ -495,34 +495,34 @@ Rectangle {
                 text: "AUTH · " + (deviceMenu.authNet ? String(deviceMenu.authNet.security || "WPA").toUpperCase() : "")
                 color: Hud.cnTextMuted
                 font.family: Hud.mono
-                font.pixelSize: 10
-                font.letterSpacing: 1.2
+                font.pixelSize: 9
+                font.letterSpacing: 1.0
             }
 
             Text {
-                x: 0; y: 16
+                x: 0; y: 13
                 width: parent.width
                 text: deviceMenu.authNet ? String(deviceMenu.authNet.ssid) : ""
                 color: Hud.cnInk
                 font.family: Hud.font
-                font.pixelSize: 18
+                font.pixelSize: 13
                 font.weight: Font.Medium
                 elide: Text.ElideRight
             }
 
             CnButton {
                 anchors.right: parent.right
-                y: 42
-                height: 24
+                y: 34
+                height: 20
                 width: implicitWidth
                 text: deviceMenu.showPassword ? "HIDE" : "SHOW"
-                textSize: 11
+                textSize: 9
                 onClicked: deviceMenu.showPassword = !deviceMenu.showPassword
             }
 
             CnInput {
                 id: passField
-                x: 0; y: 48
+                x: 0; y: 38
                 width: parent.width
                 height: implicitHeight
                 label: "PASSPHRASE"
@@ -535,10 +535,10 @@ Rectangle {
 
             CnButton {
                 x: 0
-                y: passField.y + passField.implicitHeight + 16
+                y: passField.y + passField.implicitHeight + 12
                 width: (parent.width - 8) / 2
-                height: 32
-                // Primary inverts even when disabled, so the disabled state drops to the outline style.
+                height: 28
+                textSize: 10
                 variant: "primary"
                 text: "CONNECT"
                 enabled: passField.text.length >= 8
@@ -547,9 +547,10 @@ Rectangle {
 
             CnButton {
                 x: (parent.width - 8) / 2 + 8
-                y: passField.y + passField.implicitHeight + 16
+                y: passField.y + passField.implicitHeight + 12
                 width: (parent.width - 8) / 2
-                height: 32
+                height: 28
+                textSize: 10
                 text: "CANCEL"
                 onClicked: deviceMenu.cancelAuth()
             }

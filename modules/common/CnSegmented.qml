@@ -9,7 +9,7 @@ Item {
     property string value
     signal selected(string key)
 
-    implicitHeight: 32
+    implicitHeight: 26
 
     CnCut {
         anchors.fill: parent
@@ -56,9 +56,9 @@ Item {
                           + (cell.modelData.count !== undefined ? "  " + String(cell.modelData.count).padStart(2, "0") : "")
                     color: cell.current ? Hud.cnGround : (cellMouse.containsMouse ? Hud.cnInk : Hud.cnTextSecondary)
                     font.family: Hud.mono
-                    font.pixelSize: 11
+                    font.pixelSize: 9
                     font.weight: Font.Medium
-                    font.letterSpacing: 0.66
+                    font.letterSpacing: 0.54
                     Behavior on color { ColorAnimation { duration: Hud.durMicro } }
                 }
 

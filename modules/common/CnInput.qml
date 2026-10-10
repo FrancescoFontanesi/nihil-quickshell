@@ -16,23 +16,23 @@ Item {
 
     readonly property bool armed: input.activeFocus
 
-    implicitHeight: 16 + 8 + 40 + (error !== "" ? 8 + 16 : 0)
+    implicitHeight: 20 + 32 + (error !== "" ? 6 + 24 : 0)
 
     Text {
         id: caption
         text: field.label.toUpperCase()
         color: Hud.cnTextMuted
         font.family: Hud.mono
-        font.pixelSize: 10
+        font.pixelSize: 9
         font.weight: Font.Medium
-        font.letterSpacing: 1.2
+        font.letterSpacing: 1.0
     }
 
     Item {
         id: box
-        y: 24
+        y: 20
         width: parent.width
-        height: 40
+        height: 32
 
         CnCut {
             anchors.fill: parent
@@ -73,7 +73,7 @@ Item {
             selectionColor: Hud.cnInk
             selectedTextColor: Hud.cnGround
             font.family: Hud.mono
-            font.pixelSize: 14
+            font.pixelSize: 12
             clip: true
             onAccepted: field.accepted()
             Keys.onEscapePressed: field.escaped()
@@ -90,7 +90,7 @@ Item {
 
     Row {
         visible: field.error !== ""
-        y: box.y + box.height + 8
+        y: box.y + box.height + 6
         spacing: 8
         CnStatus { code: "ERR" }
         Text {
@@ -98,8 +98,8 @@ Item {
             text: field.error
             color: Hud.cnTextSecondary
             font.family: Hud.mono
-            font.pixelSize: 11
-            font.letterSpacing: 0.66
+            font.pixelSize: 9
+            font.letterSpacing: 0.54
         }
     }
 }
