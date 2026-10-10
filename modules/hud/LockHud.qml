@@ -361,7 +361,7 @@ Item {
         DeviceMenu {
             id: deviceMenuOverlay
             z: 10
-            x: -lock.panelGap - width
+            x: -4 - width  // sits 4px off the main panel
             height: parent.height
             panelWindow: lock.panelWindow
             hudOpen: lock.visualOpen

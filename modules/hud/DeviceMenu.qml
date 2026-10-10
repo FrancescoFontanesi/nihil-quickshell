@@ -26,9 +26,9 @@ Rectangle {
 
     width: menu !== "" ? devicePanelWidth : 0
     visible: width > 0
-    color: Hud.cnGround
+    color: '#d8000000'  // same plate as LockHud's main panel
     border.width: 1
-    border.color: Hud.cnBorderPassive
+    border.color: Hud.borderPassive
     clip: true
 
     Behavior on width { CnAnim { duration: Hud.durMedium } }
