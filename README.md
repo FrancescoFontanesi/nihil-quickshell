@@ -1,6 +1,6 @@
 # Nihil HUD
 
-A [Quickshell](https://quickshell.org/) shell for Hyprland: a monochrome desktop frame with live system indicators and animated overlay panels for the calendar, hardware telemetry, connectivity, session controls, GPT, and application search.
+A [Quickshell](https://quickshell.org/) shell for Hyprland: a monochrome desktop frame with live system indicators and animated overlay panels for the calendar, hardware telemetry, connectivity, session controls, an LLM companion with switchable providers, and application search.
 
 The UI is written in QML. The edge bars stay on screen; interactive panels open over the desktop. The clock, battery, and session drawers close on an outside click. The screenshots below show the current interface on a 2160 × 1440 display.
 
@@ -14,7 +14,7 @@ The UI is written in QML. The edge bars stay on screen; interactive panels open 
 - [Hyprland Integration](#hyprland-integration)
 - [Components](#components)
   - [Edge Layout](#edge-layout)
-  - [GPT HUD](#gpt-hud)
+  - [LLM HUD](#llm-hud)
   - [Session and Connectivity HUD](#session-and-connectivity-hud)
   - [Battery, Volume, and Brightness HUD](#battery-volume-and-brightness-hud)
   - [Clock, Calendar, Weather, and Workspaces](#clock-calendar-weather-and-workspaces)
@@ -31,7 +31,7 @@ The UI is written in QML. The edge bars stay on screen; interactive panels open 
 | Four edges | Draws the PNG frame; top and bottom host the live widgets. |
 | Top bar | Shows the clock/date and ten Hyprland workspaces. Click the clock for calendar and weather. |
 | Bottom bar | Shows battery, default audio sink, and brightness. Click the battery for hardware telemetry. |
-| Left overlay | Opens an external GPT wrapper with `SUPER + M`. |
+| Left overlay | Opens the LLM wrapper (ChatGPT, Gemini, Claude or any web chat) with `SUPER + M`; a side rail switches provider. |
 | Right overlay | Opens session, Wi‑Fi, Bluetooth, airplane-mode, and power-profile controls with `SUPER + Escape`. |
 | Center overlay | Searches and launches installed desktop applications with `SUPER + Space`. |
 
@@ -80,7 +80,7 @@ Quickshell.Widgets
 
 | Dependency | Purpose |
 | --- | --- |
-| Companion LLM wrapper | Window controlled by `ChatGPTHud.qml` through `--toggle`; a separate project, see [GPT HUD](#gpt-hud) |
+| Companion LLM wrapper | Window driven by `LlmHud.qml` through its CLI and state file; a separate project, see [LLM HUD](#llm-hud) |
 
 Weather needs network access; all other panels remain available if the weather request fails.
 
@@ -99,7 +99,7 @@ Run it manually for the first check:
 quickshell -p ~/.config/quickshell/nihil/
 ```
 
-Install the dependencies above through your distribution first. Before using the project on another system, review the absolute paths and hardware assumptions in [Customization](#customization). The GPT HUD is optional: download the companion wrapper ([Chatgpt-PyGObject](https://github.com/FrancescoFontanesi/Chatgpt-PyGObject), being generalised into an LLM wrapper), point `command` in `shell.qml` to its executable, and add its `exec-once` line from [Hyprland Integration](#hyprland-integration).
+Install the dependencies above through your distribution first. Before using the project on another system, review the absolute paths and hardware assumptions in [Customization](#customization). The LLM HUD is optional: download the companion wrapper ([LLM-Wrapper](https://github.com/FrancescoFontanesi/LLM-Wrapper)), point `command` in `shell.qml` to its `llm-wrapper` launcher, and add its `exec-once` line and window rules from [Hyprland Integration](#hyprland-integration).
 
 ## Hyprland Integration
 
@@ -111,10 +111,10 @@ These are the relevant lines from the local `~/.config/hypr/hyprland.conf`.
 
 ```ini
 exec-once = quickshell -p ~/.config/quickshell/nihil/
-exec-once = /path/to/LLM-PyGObject/llm-wrapper --background
+exec-once = /path/to/LLM-Wrapper/llm-wrapper --background
 ```
 
-The second line is only needed for the GPT HUD; replace `/path/to/` with the folder where you downloaded the wrapper.
+The second line is only needed for the LLM HUD; replace `/path/to/` with the folder where you downloaded the wrapper.
 
 ### Quickshell Global Shortcuts
 
@@ -131,10 +131,10 @@ The format is `global, appid:name` and maps to the `GlobalShortcut` declarations
 | Shortcut | Quickshell target | Component |
 | --- | --- | --- |
 | `SUPER + Escape` | `lock:toggle` | `modules/hud/LockHud.qml` |
-| `SUPER + M` | `hud:toggle` | `modules/hud/ChatGPTHud.qml` |
+| `SUPER + M` | `hud:toggle` | `modules/hud/LlmHud.qml` |
 | `SUPER + Space` | `launcher:toggle` | `modules/hud/LauncherHud.qml` |
 
-### GPT Wrapper Rules
+### LLM Wrapper Rules
 
 ```ini
 windowrulev2 = float, class:^(llm-wrapper)$
@@ -164,13 +164,15 @@ The volume widget automatically detects changes through PipeWire. The brightness
 
 [`EdgeOverlayLayout.qml`](modules/bar/EdgeOverlayLayout.qml) draws `assets/top.png`, `bottom.png`, `left.png`, and `right.png` around the display. The top and bottom bars reserve space for their widgets; the flyout drawers and larger HUDs render as overlays. See the [full-screen overview](docs/screenshots/full-hud.png) above.
 
-The three overlay HUDs (GPT, session, and launcher) animate their corner nodes with the shared [`HudStaggerFrame.qml`](modules/common/HudStaggerFrame.qml). The clock, workspaces, level bars, and drawers use the static [`HudCornerFrame.qml`](modules/common/HudCornerFrame.qml).
+The three overlay HUDs (LLM, session, and launcher) animate their corner nodes with the shared [`HudStaggerFrame.qml`](modules/common/HudStaggerFrame.qml). The clock, workspaces, level bars, and drawers use the static [`HudCornerFrame.qml`](modules/common/HudCornerFrame.qml).
 
-### GPT HUD
+### LLM HUD
 
-[`ChatGPTHud.qml`](modules/hud/ChatGPTHud.qml) animates the left overlay when you press `SUPER + M` and toggles the external wrapper configured in `shell.qml`. The wrapper supplies the actual ChatGPT window and is **not** bundled with this repository. The HUD hides in fullscreen and closes on workspace changes.
+[`LlmHud.qml`](modules/hud/LlmHud.qml) animates the left overlay when you press `SUPER + M` and toggles the external [LLM-Wrapper](https://github.com/FrancescoFontanesi/LLM-Wrapper) window configured in `shell.qml`. The wrapper supplies the chat window (one daemon, one persistent login per provider) and is **not** bundled with this repository. The HUD hides in fullscreen, closes on workspace changes, and follows the wrapper window when it is hidden or shown from outside (its own `Escape`, a direct keybind).
 
-![GPT panel with an empty conversation](docs/screenshots/gpt-hud.png)
+A narrow rail docked to the right of the frame ([`LlmProviders.qml`](modules/hud/LlmProviders.qml)) shows one tile per provider (`GPT`, `GEM`, `CLD`, …): the active one is inverted, the default carries a small marker, a click switches provider instantly. `CFG` opens the provider editor next to the rail: switch, set the default, remove (two clicks), or add a provider by name and URL (validated like the wrapper does). [`LlmModel.qml`](modules/hud/LlmModel.qml) reads the daemon state from `$XDG_RUNTIME_DIR/llm-wrapper.json`, drives it only through its CLI, and keeps the default provider in the Quickshell state directory; the default is selected whenever the wrapper starts.
+
+![LLM panel with the provider rail](docs/screenshots/llm-hud.png)
 
 ### Session and Connectivity HUD
 
@@ -255,7 +257,9 @@ Available controls:
 │   │   ├── HudSummary.qml
 │   │   └── StatRow.qml
 │   └── hud/                # Overlay HUDs
-│       ├── ChatGPTHud.qml
+│       ├── LlmHud.qml          # LLM companion frame, wrapper sync
+│       ├── LlmModel.qml        # llm-wrapper state, default provider, CLI commands
+│       ├── LlmProviders.qml    # provider rail and editor
 │       ├── DeviceMenu.qml      # Wi-Fi and Bluetooth side drawer (view)
 │       ├── WifiModel.qml       # nmcli state and actions
 │       ├── BluetoothModel.qml  # native BlueZ state and actions
@@ -272,7 +276,7 @@ Available controls:
 
 These values depend on the original system and should be reviewed after cloning:
 
-- `shell.qml`: GPT wrapper path, edge frame sources, and overlay geometry. Font and colour tokens are defined once in [`modules/common/Hud.qml`](modules/common/Hud.qml).
+- `shell.qml`: LLM wrapper path, edge frame sources, and overlay geometry. Font and colour tokens are defined once in [`modules/common/Hud.qml`](modules/common/Hud.qml).
 - `modules/bar/EdgeOverlayLayout.qml`: edge thickness and indicator positions.
 - `modules/common/HudDrawer.qml`: shared `drawerMargin` and `titleSize`, used by the clock and battery drawers.
 - `modules/bar/HudClockDrawer.qml`: text sizes.

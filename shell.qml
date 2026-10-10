@@ -20,16 +20,17 @@ ShellRoot {
 
     // Overlay HUDs: margins below are calibrated against the edge artwork.
 
-    // --- LEFT HUD: ChatGPT Companion ---
+    // --- LEFT HUD: LLM companion (llm-wrapper window + provider rail) ---
     PanelWindow {
         id: hudWin
         WlrLayershell.layer: WlrLayer.Overlay
         aboveWindows: true
         color: "transparent"
-        mask: Region {} // Passthrough: input handled by external companion window
+        mask: Region {} // LlmHud opens input only over its provider rail and editor
 
         anchors { left: true; top: true; bottom: true }
-        implicitWidth: 880
+        implicitWidth: 1216               // frame + provider rail and editor (overlay)
+        property int reservedWidth: 936   // exclusive zone while open: frame + provider rail
 
         // Margin calibration relative to left screen edge
         property int leftMargin: -56
@@ -38,10 +39,10 @@ ShellRoot {
         exclusiveZone: 0
         exclusionMode: ExclusionMode.Ignore
 
-        ChatGPTHud {
+        LlmHud {
             anchors.fill: parent
             panelWindow: hudWin
-            command: "/home/nihil/Extra/LLM-PyGObject/llm-wrapper"
+            command: "/home/nihil/Extra/LLM-Wrapper/llm-wrapper"
 
             // Geometry & Calibration
             rectW: 808

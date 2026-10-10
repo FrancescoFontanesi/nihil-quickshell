@@ -2,6 +2,7 @@ import "../common"
 import QtQuick 2.12
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Wayland
 
 Item {
     id: root
@@ -51,7 +52,7 @@ Item {
         offsetX = initX
         updateExclusiveZone()
 
-        // Keep the external ChatGPT window synchronized with its HUD.
+        // Keep the external LLM window synchronized with its HUD.
         if (wasOpen)
             toggleAppOnce(true)
     }
@@ -125,10 +126,54 @@ Item {
         lineWidth: 2
     }
 
+    // ======== PROVIDERS ========
+    LlmModel {
+        id: llm
+        command: root.command
+    }
+
+    // The wrapper window can be hidden or shown without the HUD (its own Escape,
+    // a direct keybind): follow it instead of drifting out of sync.
+    Connections {
+        target: llm
+        function onVisibleChanged() {
+            if (toDeploy.running || toUndeploy.running || root.fullscreenActive) return
+            if (!llm.visible && root.visualOpen) toUndeploy.start()
+            else if (llm.visible && !root.visualOpen) toDeploy.start()
+        }
+    }
+
+    LlmProviders {
+        id: providers
+        llm: llm
+        open: root.visualOpen
+        x: 6 - (root.panelWindow ? root.panelWindow.leftMargin : 0) + root.rectW + 4
+        y: 4 + root.finalY
+    }
+
+    // Input passes through everywhere except the rail and its editor, and only while open.
+    Region { id: noInput }
+    Region {
+        id: providerInput
+        Region { item: providers.rail }
+        Region { item: providers.editor }
+    }
+    onVisualOpenChanged: if (panelWindow) panelWindow.mask = visualOpen ? providerInput : noInput
+
+    Connections {
+        target: providers
+        function onNeedsKeyboardChanged() {
+            if (!root.panelWindow) return
+            root.panelWindow.focusable = providers.needsKeyboard
+            root.panelWindow.WlrLayershell.keyboardFocus = providers.needsKeyboard
+                ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+        }
+    }
+
     // ======== EXCLUSIVE ZONE ========
     function updateExclusiveZone() {
         if (!panelWindow) { console.warn("panelWindow not set"); return; }
-        panelWindow.exclusiveZone = visualOpen ? panelWindow.implicitWidth : 0;
+        panelWindow.exclusiveZone = visualOpen ? panelWindow.reservedWidth : 0;
     }
 
     // ======== APP TOGGLE (debounced) ========
