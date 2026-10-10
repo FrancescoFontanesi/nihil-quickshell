@@ -93,21 +93,12 @@ Item {
 
     Process {
         id: systemStateScan
-        command: ["bash", "-c", "nmcli radio wifi 2>/dev/null; echo '---'; rfkill list 2>/dev/null"]
+        command: ["rfkill", "list"]
         stdout: StdioCollector {
             onStreamFinished: {
-                var parts = text.split("---")
-                if (parts.length >= 2) {
-                    var wifiStr = parts[0].trim()
-                    if (wifiStr.length > 0) {
-                        deviceMenuOverlay.wifiEnabled = (wifiStr === "enabled")
-                    }
-
-                    var rfkillStr = parts[1].trim()
-                    var hasSoftBlocked = rfkillStr.indexOf("Soft blocked: yes") !== -1
-                    var hasSoftUnblocked = rfkillStr.indexOf("Soft blocked: no") !== -1
-                    lock.airplaneMode = hasSoftBlocked && !hasSoftUnblocked
-                }
+                var hasSoftBlocked = text.indexOf("Soft blocked: yes") !== -1
+                var hasSoftUnblocked = text.indexOf("Soft blocked: no") !== -1
+                lock.airplaneMode = hasSoftBlocked && !hasSoftUnblocked
             }
         }
     }
@@ -338,8 +329,8 @@ Item {
 
                 delegate: IconTile {
                     required property var modelData
-                    readonly property bool active: modelData.menu === "wifi" ? deviceMenuOverlay.wifiEnabled
-                                                : modelData.menu === "bluetooth" ? deviceMenuOverlay.bluetoothEnabled
+                    readonly property bool active: modelData.menu === "wifi" ? deviceMenuOverlay.wifi.enabled
+                                                : modelData.menu === "bluetooth" ? deviceMenuOverlay.bluetooth.enabled
                                                 : modelData.key === "airplane" ? lock.airplaneMode
                                                 : modelData.key === "eco" ? lock.ecoMode
                                                 : false
