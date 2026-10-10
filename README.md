@@ -174,7 +174,7 @@ The three overlay HUDs (GPT, session, and launcher) animate their corner nodes w
 
 [`LockHud.qml`](modules/hud/LockHud.qml) opens on the right with `SUPER + Escape`. The left column holds the quick toggles for Wi‑Fi, Bluetooth, airplane mode, and eco mode, each with its PNG asset. The right column holds reboot, power off, and suspend; their buttons are rendered inline in `LockHud.qml`.
 
-Click Wi‑Fi or Bluetooth to expand a device drawer ([`DeviceMenu.qml`](modules/hud/DeviceMenu.qml)). It shows the current radio state, an on/off switch, available and saved/paired tabs, and connection actions. Wi‑Fi supports secured networks and saved connections; Bluetooth supports discovery, pairing, connecting, disconnecting, and removing paired devices. Click the same icon again—or outside the HUD—to close it. Airplane mode uses `rfkill`; eco mode selects the power-saver profile.
+Click Wi‑Fi or Bluetooth to expand a device drawer ([`DeviceMenu.qml`](modules/hud/DeviceMenu.qml)), docked 4px left of the main panel and drawn with the Cyber Nihilism primitives (`modules/common/Cn*.qml`). The state lives in [`WifiModel.qml`](modules/hud/WifiModel.qml) (nmcli, live updates through `nmcli monitor`, rescan every 20 s while open) and [`BluetoothModel.qml`](modules/hud/BluetoothModel.qml) (native BlueZ service, 20 s discovery). The drawer shows a status code (`NOM`, `LDG`, `ERR`, `OFF`…), an on/off switch, available and saved/paired lists, and per-row actions on hover: disconnect, re-enter key, forget. A wrong Wi‑Fi passphrase reopens the passphrase field and never leaves a broken saved profile behind; Bluetooth pair/connect results are confirmed or reported as failed or timed out. Click the same icon again—or outside the HUD—to close it. Airplane mode uses `rfkill`; eco mode selects the power-saver profile.
 
 ![Session and connectivity controls](docs/screenshots/lock-hud.png)
 
@@ -244,7 +244,8 @@ Available controls:
 │   │   ├── HudVolumeBar.qml
 │   │   └── HudWorkSpaces.qml
 │   ├── common/             # Shared tokens and building blocks
-│   │   ├── Hud.qml             # singleton: font and colour tokens, fullscreen state
+│   │   ├── Cn*.qml             # Cyber Nihilism primitives: cut, button, switch, segmented, status, input, hatch, motion
+│   │   ├── Hud.qml             # singleton: font, colour and motion tokens, fullscreen state
 │   │   ├── HudButton.qml
 │   │   ├── HudCornerFrame.qml  # static corner-node frame
 │   │   ├── HudDivider.qml
@@ -254,7 +255,9 @@ Available controls:
 │   │   └── StatRow.qml
 │   └── hud/                # Overlay HUDs
 │       ├── ChatGPTHud.qml
-│       ├── DeviceMenu.qml      # Wi-Fi and Bluetooth side drawer
+│       ├── DeviceMenu.qml      # Wi-Fi and Bluetooth side drawer (view)
+│       ├── WifiModel.qml       # nmcli state and actions
+│       ├── BluetoothModel.qml  # native BlueZ state and actions
 │       ├── LauncherHud.qml
 │       └── LockHud.qml
 ├── shell.qml               # Quickshell entry point
@@ -297,7 +300,7 @@ hyprctl globalshortcuts
 
 ### Connectivity Drawer Is Empty
 
-Check that NetworkManager and BlueZ are running and that `nmcli` works on its own. Wi‑Fi and Bluetooth lists are scanned when their respective drawer opens; Bluetooth discovery can take a few seconds.
+Check that NetworkManager and BlueZ are running and that `nmcli` works on its own. Wi‑Fi and Bluetooth lists are scanned when their respective drawer opens (SCAN repeats it); Bluetooth discovery runs for 20 s. Devices that need a PIN cannot be paired from the HUD (no BlueZ agent).
 
 ### Weather Is Unavailable
 
