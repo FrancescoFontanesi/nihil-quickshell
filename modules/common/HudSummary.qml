@@ -1,96 +1,67 @@
 import QtQuick 2.15
 
-// Drawer summary block: three centered lines on the left (headline, big value,
-// caption), label/value rows on the right, a ticked vertical rule between them.
+// Drawer summary: key, live readout and caption on the left (mono, the readout
+// style for values that update), label/value rows on the right, a 1px rule between.
 Item {
     id: summary
     property string headline
     property string value
-    property color valueColor: Hud.fg
+    property color valueColor: Hud.cnInk
     property string caption
-    property bool captionBold: false
     property var rows: []   // [{ label, value }]
-    height: 104
+    height: 84
 
-    Item {
+    Column {
         anchors.left: parent.left
-        anchors.top: parent.top
-        anchors.bottom: parent.bottom
         anchors.right: divider.left
-        anchors.rightMargin: 12
+        anchors.rightMargin: 16
+        anchors.verticalCenter: parent.verticalCenter
+        spacing: 4
 
-        Column {
-            anchors.centerIn: parent
-            width: parent.width - 10
-            spacing: 2
-
-            Text {
-                width: parent.width
-                text: summary.headline
-                color: Hud.textPrimary
-                font.family: Hud.font
-                font.pixelSize: 12
-                font.bold: true
-                font.letterSpacing: 0.5
-                horizontalAlignment: Text.AlignHCenter
-                elide: Text.ElideRight
-            }
-            Text {
-                width: parent.width
-                text: summary.value
-                color: summary.valueColor
-                font.family: Hud.font
-                font.pixelSize: 24
-                font.bold: true
-                horizontalAlignment: Text.AlignHCenter
-            }
-            Text {
-                width: parent.width
-                text: summary.caption
-                color: Hud.textSecondary
-                font.family: Hud.font
-                font.pixelSize: 12
-                font.bold: summary.captionBold
-                horizontalAlignment: Text.AlignHCenter
-                elide: Text.ElideRight
-            }
+        Text {
+            width: parent.width
+            text: String(summary.headline).toUpperCase()
+            color: Hud.cnTextMuted
+            font.family: Hud.mono
+            font.pixelSize: 9
+            font.letterSpacing: 0.9
+            elide: Text.ElideRight
+        }
+        Text {
+            width: parent.width
+            text: summary.value
+            color: summary.valueColor
+            font.family: Hud.mono
+            font.pixelSize: 24
+            font.weight: Font.Light
+        }
+        Text {
+            width: parent.width
+            text: String(summary.caption).toUpperCase()
+            color: Hud.cnTextSecondary
+            font.family: Hud.mono
+            font.pixelSize: 9
+            font.letterSpacing: 0.54
+            elide: Text.ElideRight
         }
     }
 
-    Item {
+    Rectangle {
         id: divider
         anchors.right: details.left
-        anchors.rightMargin: 23
-        anchors.top: parent.top
-        anchors.topMargin: 6
-        width: 7
-        height: parent.height - 12
-
-        Rectangle {
-            anchors.centerIn: parent
-            width: 1
-            height: parent.height - 10
-            color: Hud.dim
-        }
-        Repeater {
-            model: 2
-            Rectangle {
-                width: 5
-                height: 5
-                x: 1
-                y: index === 0 ? 0 : divider.height - height
-                color: Hud.fg
-            }
-        }
+        anchors.rightMargin: 16
+        anchors.verticalCenter: parent.verticalCenter
+        width: 1
+        height: parent.height - 16
+        color: Hud.cnBorderPassive
     }
 
     Column {
         id: details
         anchors.right: parent.right
-        anchors.rightMargin: 36
         anchors.verticalCenter: parent.verticalCenter
-        width: 136
-        spacing: 7
+        width: 150
+        spacing: 4
 
         Repeater {
             model: summary.rows
@@ -99,7 +70,6 @@ Item {
                 width: details.width
                 label: modelData.label
                 value: modelData.value
-                labelColor: Hud.textMuted
             }
         }
     }

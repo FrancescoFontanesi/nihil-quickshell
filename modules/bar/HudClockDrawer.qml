@@ -4,7 +4,17 @@ import Quickshell.Io
 
 HudDrawer {
     id: root
-    title: "// TELEMETRY // CALENDAR & WEATHER"
+    code: open ? "CAL · " + Qt.formatDate(new Date(), "yyyy-MM-dd") : ""  // re-read on every open
+    title: "CALENDAR & WEATHER"
+    statusCode: weatherStatus().code
+    statusText: weatherStatus().text
+
+    function weatherStatus() {
+        if (weatherLoading) return { code: "LDG", text: "FETCHING WEATHER" }
+        if (weatherDesc === "DATA UNAVAILABLE") return { code: "ERR", text: "WEATHER UNAVAILABLE" }
+        if (weatherDesc === "AWAITING DATA") return { code: "IDL", text: "AWAITING DATA" }
+        return { code: "NOM", text: weatherCity }
+    }
 
     // --- Weather State ---
     property string weatherCity: "DETECTING..."
@@ -131,15 +141,14 @@ HudDrawer {
     HudSummary {
         id: weatherSection
         anchors.top: root.header.bottom
-        anchors.topMargin: 8
+        anchors.topMargin: 10
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.leftMargin: 22
-        anchors.rightMargin: 22
+        anchors.leftMargin: 16
+        anchors.rightMargin: 16
         headline: root.weatherCity
         value: root.weatherTemp
         caption: root.weatherDesc
-        captionBold: true
         rows: [
             { label: "HUMIDITY", value: root.weatherHumidity },
             { label: "WIND", value: root.weatherWind },
@@ -150,11 +159,11 @@ HudDrawer {
     HudDivider {
         id: div2
         anchors.top: weatherSection.bottom
-        anchors.topMargin: 9
+        anchors.topMargin: 10
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.leftMargin: 28
-        anchors.rightMargin: 28
+        anchors.leftMargin: 16
+        anchors.rightMargin: 16
     }
 
     // --- Calendar Section ---
@@ -165,7 +174,9 @@ HudDrawer {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        anchors.margins: 20
+        anchors.leftMargin: 16
+        anchors.rightMargin: 16
+        anchors.bottomMargin: 16
 
         // Month navigation bar
         Item {
@@ -173,30 +184,35 @@ HudDrawer {
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.right: parent.right
-            height: 30
+            height: 22
 
-            HudButton {
+            CnButton {
                 anchors.left: parent.left
-                glyph: "<"
-                glyphSize: 10
+                width: 22
+                height: 22
+                cut: 4
+                text: "<"
+                textSize: 11
                 onClicked: root.changeMonth(-1)
             }
 
             Text {
                 anchors.centerIn: parent
                 text: root.monthNames[root.displayedDate.getMonth()] + " " + root.displayedDate.getFullYear()
-                color: Hud.fg
+                color: Hud.cnInk
                 font.family: Hud.font
-                font.pixelSize: 14
-                font.bold: true
-                font.letterSpacing: 1.5
+                font.pixelSize: 13
+                font.weight: Font.DemiBold
+                font.letterSpacing: 1.2
             }
 
-            HudButton {
+            CnButton {
                 anchors.right: parent.right
-                anchors.top: parent.top
-                glyph: ">"
-                glyphSize: 12
+                width: 22
+                height: 22
+                cut: 4
+                text: ">"
+                textSize: 11
                 onClicked: root.changeMonth(1)
             }
         }
@@ -219,10 +235,10 @@ HudDrawer {
                     Text {
                         anchors.centerIn: parent
                         text: modelData
-                        color: Hud.textMuted
-                        font.family: Hud.font
-                        font.pixelSize: 12
-                        font.bold: true
+                        color: Hud.cnTextMuted
+                        font.family: Hud.mono
+                        font.pixelSize: 9
+                        font.letterSpacing: 0.9
                     }
                 }
             }
@@ -241,22 +257,28 @@ HudDrawer {
 
             Repeater {
                 model: root.calendarDays
-                delegate: Rectangle {
+                delegate: Item {
                     required property var modelData
                     width: calendarGrid.width / 7
                     height: calendarGrid.height / 6
-                    color: modelData.isToday ? Hud.fg : (cellMouse.containsMouse ? "#181d24" : "transparent")
-                    border.width: modelData.isToday ? 1 : 0
-                    border.color: Hud.fg
+
+                    // Today is an inverted cell; hover outlines the others.
+                    CnCut {
+                        anchors.fill: parent
+                        anchors.margins: 2
+                        br: 4
+                        fill: modelData.isToday ? Hud.cnInk : "transparent"
+                        edge: cellMouse.containsMouse && !modelData.isToday ? Hud.cnInk : "transparent"
+                    }
 
                     Text {
                         anchors.centerIn: parent
                         text: modelData.dayNumber
-                        color: modelData.isToday ? "#000000"
-                              : (modelData.isCurrentMonth ? Hud.textSecondary : "#383e47")
-                        font.family: Hud.font
-                        font.pixelSize: 14
-                        font.bold: modelData.isToday || modelData.isCurrentMonth
+                        color: modelData.isToday ? Hud.cnGround
+                              : (modelData.isCurrentMonth ? Hud.cnInk : Hud.cnBorderActive)
+                        font.family: Hud.mono
+                        font.pixelSize: 11
+                        font.weight: Font.Medium
                     }
 
                     MouseArea {

@@ -178,7 +178,7 @@ Click Wi‑Fi or Bluetooth to expand a device drawer ([`DeviceMenu.qml`](modules
 
 ![Session and connectivity controls](docs/screenshots/lock-hud.png)
 
-![Wi-Fi drawer while scanning, before network names appear](docs/screenshots/connectivity-wifi.png)
+![Wi-Fi drawer docked to the session panel (demo network names)](docs/screenshots/connectivity-wifi.png)
 
 ### Battery, Volume, and Brightness HUD
 
@@ -244,9 +244,8 @@ Available controls:
 │   │   ├── HudVolumeBar.qml
 │   │   └── HudWorkSpaces.qml
 │   ├── common/             # Shared tokens and building blocks
-│   │   ├── Cn*.qml             # Cyber Nihilism primitives: cut, button, switch, segmented, status, input, hatch, motion
+│   │   ├── Cn*.qml             # Cyber Nihilism primitives: cut, button, switch, segmented, status, input, ticks, hatch, motion
 │   │   ├── Hud.qml             # singleton: font, colour and motion tokens, fullscreen state
-│   │   ├── HudButton.qml
 │   │   ├── HudCornerFrame.qml  # static corner-node frame
 │   │   ├── HudDivider.qml
 │   │   ├── HudDrawer.qml       # drawer chassis

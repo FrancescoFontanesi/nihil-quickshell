@@ -6,8 +6,19 @@ import Quickshell.Services.UPower
 
 HudDrawer {
     id: root
-    title: "// SYSTEM RESOURCES"
-    titleSize: 14
+    code: "PWR · " + (battery && battery.nativePath ? String(battery.nativePath).toUpperCase() : "BAT")
+    title: "SYSTEM RESOURCES"
+    drawerHeight: 344
+    statusCode: powerStatus().code
+    statusText: powerStatus().text
+
+    function powerStatus() {
+        if (full) return { code: "OK", text: "FULLY CHARGED" }
+        if (isCharging) return { code: "ACT", text: "CHARGING · " + percent + "%" }
+        if (percent <= 5) return { code: "ERR", text: "CRITICAL · " + percent + "%" }
+        if (percent <= 15) return { code: "WRN", text: "LOW · " + percent + "%" }
+        return { code: "NOM", text: "ON BATTERY · " + percent + "%" }
+    }
 
     // --- UPower Battery Reference ---
     readonly property var battery: UPower.displayDevice
@@ -113,51 +124,92 @@ HudDrawer {
         }
     }
 
-    component SegBar: Row {
-        property int percent
-        height: 8
-        spacing: 2
-
-        Repeater {
-            model: 10
-            delegate: Rectangle {
-                width: Math.floor((parent.width - 18) / 10)
-                height: parent.height
-                color: index < Math.round(percent / 10) ? Hud.fg : "#1c2128"
-            }
-        }
-    }
-
     component StatBar: Column {
         id: bar
         property string label
         property var value
         property int percent
-        spacing: 10
+        spacing: 6
 
         StatRow {
             width: bar.width
             label: bar.label
             value: bar.value
         }
-        SegBar {
+        CnTicks {
             width: bar.width
-            percent: bar.percent
+            value: bar.percent
         }
     }
 
-    // --- Battery summary below the system telemetry ---
-    HudSummary {
-        anchors.top: batteryTitle.bottom
-        anchors.topMargin: 8
+    // --- System telemetry ---
+    Column {
+        id: systemSection
+        anchors.top: root.header.bottom
+        anchors.topMargin: 12
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.leftMargin: 22
-        anchors.rightMargin: 22
+        anchors.leftMargin: 16
+        anchors.rightMargin: 16
+        spacing: 14
+
+        // CPU temperature has no percentage scale, so it stays above the bars.
+        StatRow {
+            width: parent.width
+            label: "CPU TEMP"
+            value: root.cpuTemp > 0 ? (root.cpuTemp + "°C") : "--°C"
+            valueColor: root.cpuTemp >= 80 ? Hud.alert : Hud.cnInk
+        }
+
+        StatBar {
+            width: parent.width
+            label: "CPU LOAD"
+            value: root.cpuPercent >= 0 ? root.cpuPercent + "%" : "--%"
+            percent: root.cpuPercent
+        }
+
+        StatBar {
+            width: parent.width
+            label: "RAM USAGE"
+            value: root.ramUsed + " / " + root.ramTotal + " (" + root.ramPercent + "%)"
+            percent: root.ramPercent
+        }
+    }
+
+    HudDivider {
+        id: div2
+        anchors.top: systemSection.bottom
+        anchors.topMargin: 14
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.leftMargin: 16
+        anchors.rightMargin: 16
+    }
+
+    Text {
+        id: batteryTitle
+        anchors.top: div2.bottom
+        anchors.topMargin: 12
+        anchors.left: parent.left
+        anchors.leftMargin: 16
+        text: "PWR · TELEMETRY"
+        color: Hud.cnTextMuted
+        font.family: Hud.mono
+        font.pixelSize: 9
+        font.letterSpacing: 1.0
+    }
+
+    HudSummary {
+        anchors.top: batteryTitle.bottom
+        anchors.topMargin: 6
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.leftMargin: 16
+        anchors.rightMargin: 16
         headline: root.full ? "FULL (AC)"
                   : (root.isCharging ? "CHARGING" : "DISCHARGING")
         value: (root.isCharging ? "+" : "") + root.percent + "%"
-        valueColor: root.percent <= 15 ? Hud.alert : Hud.fg
+        valueColor: root.percent <= 15 ? Hud.alert : Hud.cnInk
         caption: root.full ? "FULLY CHARGED"
                  : (root.isCharging ? "TO FULL  " + root.formatSeconds(root.timeToFull)
                                     : "REMAINING  " + root.formatSeconds(root.timeToEmpty))
@@ -166,70 +218,5 @@ HudDrawer {
             { label: "HEALTH", value: root.batteryHealth > 0 ? root.batteryHealth + "%" : "--" },
             { label: "CYCLES", value: root.cycleCount > 0 ? root.cycleCount : "--" }
         ]
-    }
-
-    HudDivider {
-        id: div2
-        anchors.top: systemSection.bottom
-        anchors.topMargin: 9
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.leftMargin: 28
-        anchors.rightMargin: 28
-    }
-
-    Text {
-        id: batteryTitle
-        anchors.top: div2.bottom
-        anchors.topMargin: 24
-        anchors.left: parent.left
-        anchors.leftMargin: 20
-        text: "// POWER & HARDWARE TELEMETRY"
-        color: Hud.textPrimary
-        font.family: Hud.font
-        font.pixelSize: 14
-        font.bold: true
-        font.letterSpacing: 1
-    }
-
-    // --- System telemetry above the separator ---
-    Item {
-        id: systemSection
-        anchors.top: root.header.bottom
-        anchors.topMargin: 8
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.margins: 22
-        height: 180
-
-        Column {
-            anchors.top: parent.top
-            anchors.topMargin: 10
-            anchors.left: parent.left
-            anchors.right: parent.right
-            spacing: 28
-
-            // CPU temperature has no percentage scale, so it stays above the bars.
-            StatRow {
-                width: parent.width
-                label: "CPU TEMP"
-                value: root.cpuTemp > 0 ? (root.cpuTemp + "°C") : "--°C"
-                valueColor: root.cpuTemp >= 80 ? Hud.alert : Hud.fg
-            }
-
-            StatBar {
-                width: parent.width
-                label: "CPU LOAD"
-                value: root.cpuPercent >= 0 ? root.cpuPercent + "%" : "--%"
-                percent: root.cpuPercent
-            }
-
-            StatBar {
-                width: parent.width
-                label: "RAM USAGE"
-                value: root.ramUsed + " / " + root.ramTotal + " (" + root.ramPercent + "%)"
-                percent: root.ramPercent
-            }
-        }
     }
 }
