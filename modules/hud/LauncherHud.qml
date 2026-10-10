@@ -1,5 +1,6 @@
 import "../common"
 import QtQuick 2.15
+import QtQuick.Shapes
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Wayland
@@ -17,8 +18,6 @@ Item {
     property int gap: 12
     property int rectW: 600
     property int rectH: 400
-    property color hudColorDim: "#60ffffff"
-    property color panelColor: "#e6101010"
     property url imageSource: Qt.resolvedUrl("../../assets/wofi.png")
     property int maxResults: 80
 
@@ -252,17 +251,25 @@ Item {
         opacity: root.visualOpen ? 1 : 0
         visible: opacity > 0 || toUndeploy.running
 
-        Behavior on opacity { NumberAnimation { duration: 180 } }
+        Behavior on opacity { CnAnim { duration: Hud.durShort } }
 
         Rectangle {
             anchors.fill: parent
-            color: root.panelColor
+            color: "#d8000000"  // same plate as LockHud / DeviceMenu
 
             Image {
                 anchors.fill: parent
                 source: root.imageSource
                 fillMode: Image.PreserveAspectCrop
                 smooth: true
+            }
+
+            // Plate edge, drawn above the backdrop image so it stays visible.
+            Rectangle {
+                anchors.fill: parent
+                color: "transparent"
+                border.width: 1
+                border.color: Hud.borderPassive
             }
         }
 
@@ -275,18 +282,39 @@ Item {
                 bottomMargin: Math.max(58, root.rectH * 0.10)
             }
 
-            Text {
+            Item {
                 id: titleLabel
                 anchors { left: parent.left; right: parent.right; top: parent.top }
                 height: 28
-                text: "APPLICATION INDEX  //  SEARCH"
-                color: Hud.fg
-                font { family: Hud.font; pixelSize: 17; letterSpacing: 3; bold: true }
-                elide: Text.ElideRight
-                verticalAlignment: Text.AlignVCenter
+
+                Text {
+                    id: microLabel
+                    x: 0; y: 0
+                    text: "APP · INDEX"
+                    color: Hud.cnTextMuted
+                    font { family: Hud.mono; pixelSize: 9; letterSpacing: 1.0 }
+                }
+
+                Text {
+                    id: titleText
+                    x: 0; y: 11
+                    height: 18
+                    text: "APPLICATIONS"
+                    color: Hud.cnInk
+                    font { family: Hud.font; pixelSize: 17; weight: Font.DemiBold; letterSpacing: 1.2 }
+                    elide: Text.ElideRight
+                    verticalAlignment: Text.AlignVCenter
+                }
+
+                Text {
+                    anchors { right: parent.right; verticalCenter: titleText.verticalCenter }
+                    text: String(applicationsList.count).padStart(3, "0") + " / " + String(root.maxResults).padStart(3, "0")
+                    color: Hud.cnTextMuted
+                    font { family: Hud.mono; pixelSize: 9; letterSpacing: 1.0 }
+                }
             }
 
-            Rectangle {
+            Item {
                 id: searchFrame
                 anchors {
                     left: parent.left
@@ -295,14 +323,34 @@ Item {
                     topMargin: 12
                 }
                 height: 62
-                color: searchInput.activeFocus ? "#ee161616" : "#d9121212"
-                border { width: searchInput.activeFocus ? 2 : 1; color: Hud.fg }
+
+                CnCut {
+                    anchors.fill: parent
+                    br: 8
+                    fill: Hud.cnGround
+                    edge: searchInput.activeFocus ? Hud.cnInk : Hud.cnBorderActive
+                    edgeWidth: searchInput.activeFocus ? 2 : 1
+                }
+
+                // Armoured top-left corner while armed.
+                Shape {
+                    visible: searchInput.activeFocus
+                    preferredRendererType: Shape.CurveRenderer
+                    ShapePath {
+                        fillColor: Hud.cnInk
+                        strokeWidth: -1
+                        startX: 0; startY: 0
+                        PathLine { x: 12; y: 0 }
+                        PathLine { x: 0; y: 12 }
+                        PathLine { x: 0; y: 0 }
+                    }
+                }
 
                 Text {
                     anchors { left: parent.left; leftMargin: 18; verticalCenter: parent.verticalCenter }
                     text: ">"
-                    color: Hud.fg
-                    font { family: Hud.font; pixelSize: 24; bold: true }
+                    color: Hud.cnTextMuted
+                    font { family: Hud.mono; pixelSize: 22 }
                 }
 
                 TextInput {
@@ -315,10 +363,10 @@ Item {
                         top: parent.top
                         bottom: parent.bottom
                     }
-                    color: Hud.fg
-                    selectionColor: Hud.fg
-                    selectedTextColor: "#101010"
-                    font { family: Hud.font; pixelSize: 22; letterSpacing: 1 }
+                    color: Hud.cnInk
+                    selectionColor: Hud.cnInk
+                    selectedTextColor: Hud.cnGround
+                    font { family: Hud.font; pixelSize: 22; weight: Font.Medium; letterSpacing: 1 }
                     verticalAlignment: TextInput.AlignVCenter
                     clip: true
                     selectByMouse: true
@@ -357,9 +405,9 @@ Item {
                         verticalCenter: parent.verticalCenter
                     }
                     visible: searchInput.text.length === 0
-                    text: "SEARCH APPLICATIONS..."
-                    color: "#70ffffff"
-                    font: searchInput.font
+                    text: "SEARCH APPLICATIONS"
+                    color: Hud.cnTextMuted
+                    font { family: Hud.mono; pixelSize: 13; letterSpacing: 1.2 }
                     elide: Text.ElideRight
                 }
 
@@ -391,7 +439,7 @@ Item {
                 currentIndex: -1
                 boundsBehavior: Flickable.StopAtBounds
 
-                delegate: Rectangle {
+                delegate: Item {
                     id: applicationDelegate
                     required property var modelData
                     required property int index
@@ -399,8 +447,14 @@ Item {
 
                     width: applicationsList.width
                     height: applicationsList.rowHeight
-                    color: selected ? "#f2ffffff" : (delegateMouse.containsMouse ? "#26ffffff" : "#c9141414")
-                    border { width: selected ? 0 : 1; color: "#35ffffff" }
+
+                    // Selected rows invert; idle rows are an outline, hover lights the edge.
+                    CnCut {
+                        anchors.fill: parent
+                        br: 8
+                        fill: applicationDelegate.selected ? Hud.cnInk : Qt.transparent
+                        edge: (applicationDelegate.selected || delegateMouse.containsMouse) ? Hud.cnInk : Hud.cnBorderPassive
+                    }
 
                     IconImage {
                         id: applicationIcon
@@ -420,7 +474,7 @@ Item {
                             left: applicationIcon.right
                             leftMargin: 16
                             right: parent.right
-                            rightMargin: 14
+                            rightMargin: 36  // keeps text clear of the index
                             top: parent.top
                             bottom: parent.bottom
                         }
@@ -428,8 +482,8 @@ Item {
                         Text {
                             anchors { left: parent.left; right: parent.right; top: parent.top; topMargin: 11 }
                             text: applicationDelegate.modelData.name
-                            color: applicationDelegate.selected ? "#101010" : Hud.fg
-                            font { family: Hud.font; pixelSize: 18; bold: true }
+                            color: applicationDelegate.selected ? Hud.cnGround : Hud.cnInk
+                            font { family: Hud.font; pixelSize: 18; weight: Font.DemiBold }
                             elide: Text.ElideRight
                         }
 
@@ -438,10 +492,17 @@ Item {
                             text: applicationDelegate.modelData.genericName
                                   || applicationDelegate.modelData.comment
                                   || applicationDelegate.modelData.id
-                            color: applicationDelegate.selected ? "#a0101010" : root.hudColorDim
-                            font { family: Hud.font; pixelSize: 12; letterSpacing: 0.5 }
+                            color: applicationDelegate.selected ? Hud.cnGround : Hud.cnTextMuted
+                            font { family: Hud.mono; pixelSize: 10; letterSpacing: 0.6 }
                             elide: Text.ElideRight
                         }
+                    }
+
+                    Text {
+                        anchors { right: parent.right; rightMargin: 14; top: parent.top; topMargin: 11 }
+                        text: String(applicationDelegate.index + 1).padStart(2, "0")
+                        color: applicationDelegate.selected ? Hud.cnGround : Hud.cnTextMuted
+                        font { family: Hud.mono; pixelSize: 9; letterSpacing: 1.0 }
                     }
 
                     MouseArea {
@@ -458,8 +519,8 @@ Item {
                     anchors.centerIn: parent
                     visible: applicationsList.count === 0
                     text: "NO APPLICATIONS FOUND"
-                    color: root.hudColorDim
-                    font { family: Hud.font; pixelSize: 16; letterSpacing: 2 }
+                    color: Hud.cnTextMuted
+                    font { family: Hud.mono; pixelSize: 11; letterSpacing: 1.2 }
                 }
             }
         }
@@ -480,6 +541,6 @@ Item {
         animDur: root.animDur
         overshoot: root.overshoot
         lineWidth: 2
-        lineColor: root.hudColorDim
+        lineColor: "#60ffffff"
     }
 }

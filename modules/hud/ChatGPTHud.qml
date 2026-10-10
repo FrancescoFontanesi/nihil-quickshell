@@ -79,15 +79,15 @@ Item {
         }
     }
 
-    // ======== WORKSPACE CHANGE: close the HUD (no app toggle here) ========
+    // ======== WORKSPACE CHANGE: close the HUD and the app, even mid-opening ========
     Connections {
         target: Hyprland
         function onFocusedWorkspaceChanged() {
-            if (toDeploy.running || toUndeploy.running) return
-            if (root.visualOpen) {
-                toUndeploy.start()
-                toggleAppOnce()
-            }
+            if (toUndeploy.running || !(root.visualOpen || toDeploy.running)) return
+            toDeploy.stop()
+            toUndeploy.start()
+            // Forced: the opening toggle may be younger than the debounce window.
+            toggleAppOnce(true)
         }
     }
 
@@ -105,7 +105,7 @@ Item {
         ScriptAction { script: { root.expandPhase = true; root.visualOpen = false } }
         PauseAnimation { duration: expandTotal }
         ScriptAction { script: { root.expandPhase = false } }
-        NumberAnimation { target: root; property: "offsetX"; from: initX + shiftX; to: initX; duration: 220; easing.type: Easing.InOutCubic }
+        NumberAnimation { target: root; property: "offsetX"; to: initX; duration: 220; easing.type: Easing.InOutCubic }  // from the current offset: may be mid-opening
         ScriptAction { script: { root.expandPhase = true } }
         onStopped: updateExclusiveZone()
     }

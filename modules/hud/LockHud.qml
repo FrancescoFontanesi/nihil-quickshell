@@ -53,7 +53,16 @@ Item {
     readonly property bool ecoMode: PowerProfiles.profile === PowerProfile.PowerSaver
     property bool airplaneMode: false
 
+    // Power actions need two clicks: the first arms the tile for 3s.
+    property int armedPower: -1
+    Timer {
+        id: disarmTimer
+        interval: 3000
+        onTriggered: lock.armedPower = -1
+    }
+
     function resetOpenState() {
+        armedPower = -1
         expandPhase = true
         visualOpen = false
         backgroundReady = false
@@ -247,6 +256,7 @@ Item {
         property int iconSize: 120
         property real hoverScale: 1.15
         property real iconOpacity: 1
+        property bool armed: false
         signal clicked()
 
         transformOrigin: Item.Center
@@ -262,6 +272,28 @@ Item {
             fillMode: Image.PreserveAspectFit
             smooth: true
             opacity: tile.iconOpacity
+        }
+
+        // Armed (critical action awaiting confirmation): 2px ink cut + CONFIRM.
+        CnCut {
+            anchors.fill: parent
+            anchors.margins: 4
+            visible: tile.armed
+            br: 8
+            edge: Hud.cnInk
+            edgeWidth: 2
+        }
+
+        Text {
+            visible: tile.armed
+            anchors.top: parent.bottom
+            anchors.topMargin: 2
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: "CONFIRM"
+            color: Hud.cnInk
+            font.family: Hud.mono
+            font.pixelSize: 9
+            font.letterSpacing: 1.0
         }
 
         MouseArea {
@@ -298,14 +330,14 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: 1
                 height: parent.height
-                color: Hud.borderSecondary
+                color: Hud.cnBorderPassive
             }
             Repeater {
                 model: 2
                 delegate: Rectangle {
                     width: 6
                     height: 6
-                    color: Hud.textPrimary
+                    color: Hud.cnInk
                     x: 1
                     y: index === 0 ? 0 : parent.height - height
                 }
@@ -387,12 +419,20 @@ Item {
 
                 IconTile {
                     required property var modelData
+                    required property int index
                     anchors.horizontalCenter: parent.horizontalCenter
                     width: 105
                     height: 120
                     icon: modelData.icon
                     hoverScale: 1.2
+                    armed: lock.armedPower === index
                     onClicked: {
+                        if (!armed) {
+                            lock.armedPower = index
+                            disarmTimer.restart()
+                            return
+                        }
+                        lock.armedPower = -1
                         toUndeployLock.start()
                         Quickshell.execDetached(modelData.cmd)
                     }

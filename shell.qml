@@ -41,7 +41,7 @@ ShellRoot {
         ChatGPTHud {
             anchors.fill: parent
             panelWindow: hudWin
-            command: "/home/nihil/Extra/Chatgpt-PyGObject/chatgpt-wrapper"
+            command: "/home/nihil/Extra/LLM-PyGObject/llm-wrapper"
 
             // Geometry & Calibration
             rectW: 808

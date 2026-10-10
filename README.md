@@ -22,6 +22,7 @@ The UI is written in QML. The edge bars stay on screen; interactive panels open 
 - [Repository Structure](#repository-structure)
 - [Customization](#customization)
 - [Troubleshooting](#troubleshooting)
+- [License](#license)
 
 ## At a Glance
 
@@ -52,6 +53,8 @@ The drawers and session overlay are clickable without moving application windows
 | NetworkManager (`nmcli`) | Wi‑Fi state, scans, connections, and saved networks |
 | BlueZ | Bluetooth power, discovery, pairing, and connections, through Quickshell's `Quickshell.Bluetooth` service over D-Bus |
 | `rfkill` | Airplane-mode control |
+| Rajdhani font | Titles, labels and widget text |
+| JetBrains Mono font | Metadata, readouts and status codes of the Cyber Nihilism components |
 | power-profiles-daemon | Power-saver/eco profile, through Quickshell's `PowerProfiles` service over D-Bus |
 | `curl` | Weather request to `wttr.in` |
 | `hyprctl` | Workspace switching from the top bar |
@@ -77,8 +80,7 @@ Quickshell.Widgets
 
 | Dependency | Purpose |
 | --- | --- |
-| External ChatGPT wrapper | Window controlled by `ChatGPTHud.qml` through `--toggle` |
-| Rajdhani font | Intended typography; Qt falls back to sans-serif if unavailable |
+| Companion LLM wrapper | Window controlled by `ChatGPTHud.qml` through `--toggle`; a separate project, see [GPT HUD](#gpt-hud) |
 
 Weather needs network access; all other panels remain available if the weather request fails.
 
@@ -97,7 +99,7 @@ Run it manually for the first check:
 quickshell -p ~/.config/quickshell/nihil/
 ```
 
-Install the dependencies above through your distribution first. Before using the project on another system, review the absolute paths and hardware assumptions in [Customization](#customization). The GPT wrapper is optional, but its command in `shell.qml` must point to a real executable if you want that panel to work.
+Install the dependencies above through your distribution first. Before using the project on another system, review the absolute paths and hardware assumptions in [Customization](#customization). The GPT HUD is optional: download the companion wrapper ([Chatgpt-PyGObject](https://github.com/FrancescoFontanesi/Chatgpt-PyGObject), being generalised into an LLM wrapper), point `command` in `shell.qml` to its executable, and add its `exec-once` line from [Hyprland Integration](#hyprland-integration).
 
 ## Hyprland Integration
 
@@ -109,10 +111,10 @@ These are the relevant lines from the local `~/.config/hypr/hyprland.conf`.
 
 ```ini
 exec-once = quickshell -p ~/.config/quickshell/nihil/
-exec-once = /home/nihil/Extra/Chatgpt-PyGObject/chatgpt-wrapper --background
+exec-once = /path/to/LLM-PyGObject/llm-wrapper --background
 ```
 
-The second line is only required for the GPT HUD and must be updated to match your wrapper location.
+The second line is only needed for the GPT HUD; replace `/path/to/` with the folder where you downloaded the wrapper.
 
 ### Quickshell Global Shortcuts
 
@@ -135,9 +137,9 @@ The format is `global, appid:name` and maps to the `GlobalShortcut` declarations
 ### GPT Wrapper Rules
 
 ```ini
-windowrulev2 = float, class:^(chatgpt-wrapper)$
-windowrulev2 = size 794 1286,, class:^(chatgpt-wrapper)$
-windowrulev2 = move 78 74, class:^(chatgpt-wrapper)$
+windowrulev2 = float, class:^(llm-wrapper)$
+windowrulev2 = size 794 1286,, class:^(llm-wrapper)$
+windowrulev2 = move 78 74, class:^(llm-wrapper)$
 ```
 
 ### Volume and Brightness
@@ -172,7 +174,7 @@ The three overlay HUDs (GPT, session, and launcher) animate their corner nodes w
 
 ### Session and Connectivity HUD
 
-[`LockHud.qml`](modules/hud/LockHud.qml) opens on the right with `SUPER + Escape`. The left column holds the quick toggles for Wi‑Fi, Bluetooth, airplane mode, and eco mode, each with its PNG asset. The right column holds reboot, power off, and suspend; their buttons are rendered inline in `LockHud.qml`.
+[`LockHud.qml`](modules/hud/LockHud.qml) opens on the right with `SUPER + Escape`. The left column holds the quick toggles for Wi‑Fi, Bluetooth, airplane mode, and eco mode, each with its PNG asset. The right column holds reboot, power off, and suspend; their buttons are rendered inline in `LockHud.qml`. A power action needs two clicks: the first arms the icon (`CONFIRM`), the second within 3 s runs it.
 
 Click Wi‑Fi or Bluetooth to expand a device drawer ([`DeviceMenu.qml`](modules/hud/DeviceMenu.qml)), docked 4px left of the main panel and drawn with the Cyber Nihilism primitives (`modules/common/Cn*.qml`). The state lives in [`WifiModel.qml`](modules/hud/WifiModel.qml) (nmcli, live updates through `nmcli monitor`, rescan every 20 s while open) and [`BluetoothModel.qml`](modules/hud/BluetoothModel.qml) (native BlueZ service, 20 s discovery). The drawer shows a status code (`NOM`, `LDG`, `ERR`, `OFF`…), an on/off switch, available and saved/paired lists, and per-row actions on hover: disconnect, re-enter key, forget. A wrong Wi‑Fi passphrase reopens the passphrase field and never leaves a broken saved profile behind; Bluetooth pair/connect results are confirmed or reported as failed or timed out. Click the same icon again—or outside the HUD—to close it. Airplane mode uses `rfkill`; eco mode selects the power-saver profile.
 
@@ -184,7 +186,7 @@ Click Wi‑Fi or Bluetooth to expand a device drawer ([`DeviceMenu.qml`](modules
 
 The bottom bar combines [`HudBattery.qml`](modules/bar/HudBattery.qml), [`HudVolumeBar.qml`](modules/bar/HudVolumeBar.qml), and [`HudBrightnessBar.qml`](modules/bar/HudBrightnessBar.qml):
 
-- Battery reads percentage and power status directly from UPower.
+- Battery reads percentage and charge state directly from UPower. On AC with a charge limit (for example 70%), the drawer reports `ON AC · HOLD` instead of charging.
 - Volume tracks the default PipeWire sink and marks mute state.
 - Brightness listens for backlight events and reads the current percentage with `brightnessctl`; no helper script or temporary file is required.
 
@@ -258,7 +260,10 @@ Available controls:
 │       ├── WifiModel.qml       # nmcli state and actions
 │       ├── BluetoothModel.qml  # native BlueZ state and actions
 │       ├── LauncherHud.qml
-│       └── LockHud.qml
+│       ├── LockHud.qml
+│       └── wifi.js         # pure nmcli parsers, shared with the tests
+├── LICENSE
+├── tests/wifi.test.mjs     # node tests for the Wi-Fi parsers
 ├── shell.qml               # Quickshell entry point
 └── README.md
 ```
@@ -320,8 +325,18 @@ udevadm monitor -s backlight -u
 
 If the percentage is not updated after pressing a brightness key, check the Hyprland binds above and the device class passed to `brightnessctl`.
 
+### Wi-Fi Parser Tests
+
+```bash
+node tests/wifi.test.mjs
+```
+
 ### Runtime Logs
 
 ```bash
 qs -p ~/.config/quickshell/nihil log --no-color
 ```
+
+## License
+
+Copyright © 2025–2026 Francesco Fontanesi. All rights reserved. The source is public to be read as a portfolio project; no licence to use, copy, modify or redistribute it is granted. See [LICENSE](LICENSE).

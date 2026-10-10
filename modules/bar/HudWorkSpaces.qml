@@ -7,8 +7,8 @@ Item {
     id: root
 
     // --- Configuration ---
-    property int workspaceCount: 10
-    property int perRow: 5
+    readonly property int workspaceCount: 10
+    readonly property int perRow: 5
 
     // Dynamic resolution scaling based on parent panel width (reference: 2160x1440)
     readonly property real scaleRatio: parent && parent.width > 0 ? (parent.width / 2160.0) : 1.0
@@ -28,20 +28,9 @@ Item {
     implicitWidth: width
     implicitHeight: height
 
-    // --- Style (Original Preserved) ---
-    property color emptyColor: '#6e000000'
-    property color emptyTextColor: "#ffffff"
-    property color occupiedColor: '#c5ffffff'
-    property color occupiedTextColor: "#000000"
-    property int workspaceBorderWidth: 2
-    property int workspaceActiveBorderWidth: 4
-    property real workspaceCornerRadius: 2
-
-    // Indicator Style
-    property bool showIndicator: true
-    property int indicatorAnimDuration: 200
-    property color indicatorNodeColor: "#ffffff"
-    property color indicatorOutlineColor: "#80ffffff"
+    // --- Style (shared by several cells) ---
+    readonly property color emptyColor: '#6e000000'
+    readonly property color occupiedColor: '#c5ffffff'
 
     // --- Reactive State Tracking ---
     readonly property int activeWorkspaceId: Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : -1
@@ -55,39 +44,29 @@ Item {
         return base
     }
 
-    function ensurePersistence() {
-        var mon = (Hyprland.focusedMonitor && Hyprland.focusedMonitor.name) ? Hyprland.focusedMonitor.name : "eDP-1"
+    // Monitor-agnostic persistent rules, applied once at load so focusing another monitor does not re-pin them
+    Component.onCompleted: {
         var cmds = []
         for (var i = 1; i <= root.workspaceCount; ++i)
-            cmds.push("keyword workspace " + i + ",monitor:" + mon + ",persistent:true")
+            cmds.push("keyword workspace " + i + ",persistent:true")
         Quickshell.execDetached(["hyprctl", "--batch", cmds.join(" ; ")])
-    }
-
-    Component.onCompleted: ensurePersistence()
-
-    Connections {
-        target: Hyprland
-
-        function onFocusedMonitorChanged() {
-            root.ensurePersistence()
-        }
     }
 
     // --- Indicator Frame (Slides to Active Workspace) ---
     HudCornerFrame {
         id: indicator
         z: 10
-        visible: root.showIndicator && root.activeIdx >= 0
+        visible: root.activeIdx >= 0
         width: root.cellWidth + root.indicatorPadding * 2
         height: root.cellHeight + root.indicatorPadding * 2
         x: root.activeIdx >= 0 ? (root.horizontalPos(root.activeIdx) - root.indicatorPadding) : 0
         y: 0
         nodeSize: root.indicatorNodeSize
-        nodeColor: root.indicatorNodeColor
-        lineColor: root.indicatorOutlineColor
+        nodeColor: "#ffffff"
+        lineColor: "#80ffffff"
 
         Behavior on x {
-            NumberAnimation { duration: root.indicatorAnimDuration; easing.type: Easing.OutCubic }
+            NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
         }
     }
 
@@ -108,10 +87,10 @@ Item {
 
             Rectangle {
                 anchors.fill: parent
-                radius: root.workspaceCornerRadius
+                radius: 2
                 color: isOccupied ? root.occupiedColor : root.emptyColor
                 border.color: isOccupied ? root.emptyColor : root.occupiedColor
-                border.width: isActive ? root.workspaceActiveBorderWidth : root.workspaceBorderWidth
+                border.width: isActive ? 4 : 2
                 antialiasing: true
                 Behavior on color { ColorAnimation { duration: 220; easing.type: Easing.OutCubic } }
             }
@@ -119,7 +98,7 @@ Item {
             Text {
                 anchors.centerIn: parent
                 text: String(workspaceId)
-                color: isOccupied ? root.occupiedTextColor : root.emptyTextColor
+                color: isOccupied ? "#000000" : "#ffffff"
                 font.pixelSize: Math.round(root.cellHeight * 0.45)
                 font.weight: Font.DemiBold
                 font.family: Hud.font

@@ -19,7 +19,7 @@ Item {
     property int percent: battery && battery.ready
         ? Math.max(0, Math.min(100, Math.round(battery.percentage * 100)))
         : 0
-    property bool charging: battery && battery.ready && !UPower.onBattery
+    readonly property bool charging: !!(battery && battery.ready && battery.state === UPowerDeviceState.Charging)
 
     // --- UI LAYOUT ---
     width: barWidth

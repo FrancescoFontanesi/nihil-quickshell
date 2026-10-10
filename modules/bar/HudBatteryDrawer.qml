@@ -15,6 +15,7 @@ HudDrawer {
     function powerStatus() {
         if (full) return { code: "OK", text: "FULLY CHARGED" }
         if (isCharging) return { code: "ACT", text: "CHARGING · " + percent + "%" }
+        if (holding) return { code: "IDL", text: "ON AC · HOLD · " + percent + "%" }
         if (percent <= 5) return { code: "ERR", text: "CRITICAL · " + percent + "%" }
         if (percent <= 15) return { code: "WRN", text: "LOW · " + percent + "%" }
         return { code: "NOM", text: "ON BATTERY · " + percent + "%" }
@@ -25,8 +26,11 @@ HudDrawer {
     property int percent: battery && battery.ready
         ? Math.max(0, Math.min(100, Math.round(battery.percentage * 100)))
         : 0
-    property bool isCharging: battery && battery.ready && !UPower.onBattery
-    readonly property bool full: percent >= 99 && isCharging
+    // Plugged in is not charging: a charge limit (e.g. 70%) holds the battery on AC.
+    readonly property bool onAc: !!(battery && battery.ready && !UPower.onBattery)
+    readonly property bool isCharging: !!(battery && battery.ready && battery.state === UPowerDeviceState.Charging)
+    readonly property bool full: onAc && (battery.state === UPowerDeviceState.FullyCharged || percent >= 99)
+    readonly property bool holding: onAc && !isCharging && !full
     property real energyRate: battery && battery.ready ? Math.abs(battery.changeRate) : 0
     property int timeToEmpty: battery && battery.ready ? battery.timeToEmpty : 0
     property int timeToFull: battery && battery.ready ? battery.timeToFull : 0
@@ -64,9 +68,10 @@ HudDrawer {
             "read -r _ u nice s i w irq sirq st _ 2>/dev/null < /proc/stat",
             "total=$(( ${u:-0} + ${nice:-0} + ${s:-0} + ${i:-0} + ${w:-0} + ${irq:-0} + ${sirq:-0} + ${st:-0} ))",
             "idle=$(( ${i:-0} + ${w:-0} ))",
-            "rd /sys/class/power_supply/BAT1/cycle_count; cycles=$REPLY",
-            "rd /sys/class/power_supply/BAT1/charge_full; c_full=$REPLY",
-            "rd /sys/class/power_supply/BAT1/charge_full_design; c_des=$REPLY",
+            "bat=; for b in /sys/class/power_supply/BAT*; do [ -d \"$b\" ] && { bat=$b; break; }; done",
+            "rd \"$bat/cycle_count\"; cycles=$REPLY",
+            "rd \"$bat/charge_full\"; c_full=$REPLY",
+            "rd \"$bat/charge_full_design\"; c_des=$REPLY",
             "health=0; if [ \"$c_des\" -gt 0 ]; then health=$(( c_full * 100 / c_des )); fi",
             "echo \"$temp_c $((ru / 10)).$((ru % 10)) $((rt / 10)).$((rt % 10)) $ram_pct $total $idle $cycles $health\""
         ].join("\n")
@@ -207,12 +212,14 @@ HudDrawer {
         anchors.leftMargin: 16
         anchors.rightMargin: 16
         headline: root.full ? "FULL (AC)"
-                  : (root.isCharging ? "CHARGING" : "DISCHARGING")
+                  : root.isCharging ? "CHARGING"
+                  : root.holding ? "ON AC · HOLD" : "DISCHARGING"
         value: (root.isCharging ? "+" : "") + root.percent + "%"
         valueColor: root.percent <= 15 ? Hud.alert : Hud.cnInk
         caption: root.full ? "FULLY CHARGED"
-                 : (root.isCharging ? "TO FULL  " + root.formatSeconds(root.timeToFull)
-                                    : "REMAINING  " + root.formatSeconds(root.timeToEmpty))
+                 : root.isCharging ? "TO FULL  " + root.formatSeconds(root.timeToFull)
+                 : root.holding ? "CHARGE LIMIT REACHED"
+                 : "REMAINING  " + root.formatSeconds(root.timeToEmpty)
         rows: [
             { label: "POWER", value: root.energyRate > 0 ? root.energyRate.toFixed(1) + " W" : "-- W" },
             { label: "HEALTH", value: root.batteryHealth > 0 ? root.batteryHealth + "%" : "--" },

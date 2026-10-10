@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "wifi.js" as WifiParse
 
 // Non-visual Wi-Fi model for the HUD: radio state, scan results, saved profiles, actions.
 // Queries coalesce: a request while a process runs is queued, never a second process.
@@ -41,10 +42,12 @@ Scope {
         if (active) refresh(true)
     }
 
-    function refresh(rescan) {
+    // skipSaved: the saved-profile scan costs one nmcli per profile, so the
+    // monitor/timer refreshes skip it; open, SCAN and finished actions include it.
+    function refresh(rescan, skipSaved) {
         if (device === "") _startDevice()
         _startRadio()
-        _startSaved()
+        if (!skipSaved) _startSaved()
         if (enabled) _startList(!!rescan)
     }
 
@@ -112,17 +115,6 @@ Scope {
         savedUuids = next
         _rebuild()
         return true
-    }
-
-    // Exposed for the harness: maps an action's exit code and stderr to the short error code.
-    function mapActionError(text, code) {
-        if (code === 0) return ""
-        var t = text || ""
-        if (/secrets were required|802-1x|supplicant|psk|password/i.test(t)) return "AUTH FAILED"
-        if (/no network with ssid/i.test(t)) return "NOT IN RANGE"
-        if (/timeout|timed out/i.test(t)) return "TIMEOUT"
-        if (/not authorized/i.test(t)) return "NOT AUTHORIZED"
-        return "FAILED"
     }
 
     function uuidFor(ssid) {
@@ -195,43 +187,8 @@ Scope {
 
     function _onList(text) {
         if (!enabled) return
-        _scanned = parseWifiEntries(text)
+        _scanned = WifiParse.parseWifiEntries(text)
         _rebuild()
-    }
-
-    function parseWifiEntries(output) {
-        var entries = []
-        var seen = Object.create(null)
-        var lines = output.trim().split("\n")
-        for (var i = 0; i < lines.length; ++i) {
-            var line = lines[i].trim()
-            if (!line) continue
-            var inUse = line.charAt(0) === "*"
-            var rest = line.substring(line.indexOf(":") + 1)
-            var parts = rest.split(":")
-            if (parts.length < 3) continue
-            // SSIDs may contain ':' (-e no): security and signal are the last two fields.
-            var signal = parts[parts.length - 1]
-            var security = parts[parts.length - 2]
-            var ssid = parts.slice(0, parts.length - 2).join(":")
-            if (!ssid) continue
-            var secured = security !== "" && security !== "--"
-            var level = parseInt(signal) || 0
-            if (seen[ssid]) {
-                var existing = seen[ssid]
-                if (inUse || (!existing.inUse && level > existing.signal)) {
-                    existing.signal = level
-                    existing.security = security
-                    existing.secured = secured
-                }
-                existing.inUse = existing.inUse || inUse
-                continue
-            }
-            var entry = { ssid: ssid, inUse: inUse, security: security, secured: secured, saved: false, signal: level }
-            seen[ssid] = entry
-            entries.push(entry)
-        }
-        return entries
     }
 
     function _rankSort(a, b) {
@@ -294,7 +251,7 @@ Scope {
     function _finishAction(code, text, a) {
         busy = false
         if (code !== 0) {
-            error = mapActionError(text, code)
+            error = WifiParse.mapActionError(text, code)
             errorSsid = a.ssid
             connectingSsid = ""
             if (a.kind === "password" && !a.wasSaved && !cleanupProc.running) {
@@ -392,13 +349,13 @@ Scope {
     Timer {
         id: debounce
         interval: 600
-        onTriggered: wifi.refresh(false)
+        onTriggered: wifi.refresh(false, true)
     }
 
     Timer {
         interval: 20000
         repeat: true
         running: wifi.active && wifi.enabled
-        onTriggered: wifi.refresh(true)
+        onTriggered: wifi.refresh(true, true)
     }
 }
