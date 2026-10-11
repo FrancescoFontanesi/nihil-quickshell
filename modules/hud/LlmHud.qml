@@ -98,7 +98,7 @@ Item {
         ScriptAction { script: { root.expandPhase = false; root.visualOpen = false } }
         NumberAnimation { target: root; property: "offsetX"; from: initX; to: initX + shiftX; duration: 220; easing.type: Easing.OutCubic }
         ScriptAction { script: { root.expandPhase = true; root.visualOpen = true } }
-        onStopped: updateExclusiveZone()
+        onStopped: { updateExclusiveZone(); root.syncWithApp() }
     }
 
     SequentialAnimation {
@@ -108,7 +108,7 @@ Item {
         ScriptAction { script: { root.expandPhase = false } }
         NumberAnimation { target: root; property: "offsetX"; to: initX; duration: 220; easing.type: Easing.InOutCubic }  // from the current offset: may be mid-opening
         ScriptAction { script: { root.expandPhase = true } }
-        onStopped: updateExclusiveZone()
+        onStopped: { updateExclusiveZone(); root.syncWithApp() }
     }
 
     // ======== 4 CORNER NODES + OUTLINE ========
@@ -136,27 +136,27 @@ Item {
     // a direct keybind): follow it instead of drifting out of sync.
     Connections {
         target: llm
-        function onVisibleChanged() {
-            if (toDeploy.running || toUndeploy.running || root.fullscreenActive) return
-            if (!llm.visible && root.visualOpen) toUndeploy.start()
-            else if (llm.visible && !root.visualOpen) toDeploy.start()
-        }
+        function onVisibleChanged() { root.syncWithApp() }
+        function onRunningChanged() { root.syncWithApp() }
     }
 
+    // Provider tab on the frame's top edge + the provider panel drawn over the wrapper.
     LlmProviders {
         id: providers
+        anchors.fill: parent
+        z: 10
         llm: llm
-        open: root.visualOpen
-        x: 6 - (root.panelWindow ? root.panelWindow.leftMargin : 0) + root.rectW + 4
-        y: 4 + root.finalY
+        hudOpen: root.visualOpen
+        frame: Qt.rect(6 - (root.panelWindow ? root.panelWindow.leftMargin : 0), 4 + root.finalY, root.rectW, root.rectH)
+        nodeSize: root.s
     }
 
-    // Input passes through everywhere except the rail and its editor, and only while open.
+    // Input passes through everywhere except the tab and the panel, and only while open.
     Region { id: noInput }
     Region {
         id: providerInput
-        Region { item: providers.rail }
-        Region { item: providers.editor }
+        Region { item: providers.tab }
+        Region { item: providers.panel }
     }
     onVisualOpenChanged: if (panelWindow) panelWindow.mask = visualOpen ? providerInput : noInput
 
@@ -167,8 +167,21 @@ Item {
             root.panelWindow.focusable = providers.needsKeyboard
             root.panelWindow.WlrLayershell.keyboardFocus = providers.needsKeyboard
                 ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+            if (providers.needsKeyboard) Qt.callLater(providers.focusPanel)
+            else if (llm.visible) llm.run([])   // hand the keyboard back to the wrapper window
         }
     }
+
+    // Reconcile the HUD with the wrapper window's real visibility. Skipped while
+    // animating and for 1.5s after the HUD itself toggled the app (a cold start is slow).
+    function syncWithApp() {
+        if (toDeploy.running || toUndeploy.running || fullscreenActive || !llm.running) return
+        if (Date.now() - _lastToggleMs < 1500) { syncRetry.restart(); return }
+        if (!llm.visible && visualOpen) toUndeploy.start()
+        else if (llm.visible && !visualOpen) toDeploy.start()
+    }
+    Timer { id: syncRetry; interval: 1600; onTriggered: root.syncWithApp() }
+    Component.onCompleted: Qt.callLater(syncWithApp)   // the state may load before the Connections exist
 
     // ======== EXCLUSIVE ZONE ========
     function updateExclusiveZone() {

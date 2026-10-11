@@ -20,17 +20,17 @@ ShellRoot {
 
     // Overlay HUDs: margins below are calibrated against the edge artwork.
 
-    // --- LEFT HUD: LLM companion (llm-wrapper window + provider rail) ---
+    // --- LEFT HUD: LLM companion (llm-wrapper window + provider panel) ---
     PanelWindow {
         id: hudWin
         WlrLayershell.layer: WlrLayer.Overlay
         aboveWindows: true
         color: "transparent"
-        mask: Region {} // LlmHud opens input only over its provider rail and editor
+        mask: Region {} // LlmHud opens input only over its provider tab and panel
 
         anchors { left: true; top: true; bottom: true }
-        implicitWidth: 1216               // frame + provider rail and editor (overlay)
-        property int reservedWidth: 936   // exclusive zone while open: frame + provider rail
+        implicitWidth: 880
+        property int reservedWidth: 880   // exclusive zone while open
 
         // Margin calibration relative to left screen edge
         property int leftMargin: -56

@@ -23,9 +23,42 @@ Scope {
                                               ? prefs.defaultProvider : (names.length ? names[0] : "")
     property bool _defaultApplied: false
 
-    function code(name) {
-        var known = { chatgpt: "GPT", gemini: "GEM", claude: "CLD", mistral: "MIS", perplexity: "PPX" }
-        return known[name] || String(name).replace(/[^A-Za-z0-9]/g, "").slice(0, 3).toUpperCase()
+    // Provider icons: fetched once per host (Google's favicon service, 128px) into
+    // the Quickshell cache dir; the view shows them in grayscale.
+    readonly property string iconDir: Quickshell.cachePath("llm-icons")
+    property var icons: ({})                  // host -> file url ("" = fetch failed, show the fallback)
+    property var _iconHosts: []
+
+    function host(name) {
+        var m = /^https?:\/\/([^/:?#]+)/i.exec(providers[name] || "")
+        return m && /^[A-Za-z0-9.-]+$/.test(m[1]) ? m[1].toLowerCase() : ""
+    }
+    function iconFor(name) {
+        return icons[host(name)] || ""
+    }
+    function _fetchIcons() {
+        var hosts = names.map(host).filter(h => h !== "" && icons[h] === undefined)
+        if (hosts.length === 0 || iconProc.running) return   // a running fetch re-checks when it exits
+        _iconHosts = hosts
+        iconProc.command = ["bash", "-c",
+            "d=\"$1\"; shift; mkdir -p \"$d\"; for h in \"$@\"; do f=\"$d/$h.png\"; " +
+            "[ -s \"$f\" ] || { curl -fsSL --max-time 6 -o \"$f.tmp\" \"https://www.google.com/s2/favicons?domain=$h&sz=128\" && mv \"$f.tmp\" \"$f\"; }; " +
+            "[ -s \"$f\" ] && printf '%s\\n' \"$h\"; done", "_", iconDir].concat(hosts)
+        iconProc.running = true
+    }
+    onNamesChanged: Qt.callLater(_fetchIcons)
+
+    Process {
+        id: iconProc
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var next = Object.assign({}, llm.icons)
+                var got = text.split("\n").filter(h => h !== "")
+                llm._iconHosts.forEach(h => next[h] = got.indexOf(h) !== -1 ? "file://" + llm.iconDir + "/" + h + ".png" : "")
+                llm.icons = next
+            }
+        }
+        onExited: Qt.callLater(llm._fetchIcons)
     }
 
     // Input checks mirror the daemon's own (it ignores invalid input silently).

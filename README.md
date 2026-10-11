@@ -31,7 +31,7 @@ The UI is written in QML. The edge bars stay on screen; interactive panels open 
 | Four edges | Draws the PNG frame; top and bottom host the live widgets. |
 | Top bar | Shows the clock/date and ten Hyprland workspaces. Click the clock for calendar and weather. |
 | Bottom bar | Shows battery, default audio sink, and brightness. Click the battery for hardware telemetry. |
-| Left overlay | Opens the LLM wrapper (ChatGPT, Gemini, Claude or any web chat) with `SUPER + M`; a side rail switches provider. |
+| Left overlay | Opens the LLM wrapper (ChatGPT, Gemini, Claude or any web chat) with `SUPER + M`; a tab on its frame opens the provider panel. |
 | Right overlay | Opens session, Wi‑Fi, Bluetooth, airplane-mode, and power-profile controls with `SUPER + Escape`. |
 | Center overlay | Searches and launches installed desktop applications with `SUPER + Space`. |
 
@@ -170,9 +170,9 @@ The three overlay HUDs (LLM, session, and launcher) animate their corner nodes w
 
 [`LlmHud.qml`](modules/hud/LlmHud.qml) animates the left overlay when you press `SUPER + M` and toggles the external [LLM-Wrapper](https://github.com/FrancescoFontanesi/LLM-Wrapper) window configured in `shell.qml`. The wrapper supplies the chat window (one daemon, one persistent login per provider) and is **not** bundled with this repository. The HUD hides in fullscreen, closes on workspace changes, and follows the wrapper window when it is hidden or shown from outside (its own `Escape`, a direct keybind).
 
-A narrow rail docked to the right of the frame ([`LlmProviders.qml`](modules/hud/LlmProviders.qml)) shows one tile per provider (`GPT`, `GEM`, `CLD`, …): the active one is inverted, the default carries a small marker, a click switches provider instantly. `CFG` opens the provider editor next to the rail: switch, set the default, remove (two clicks), or add a provider by name and URL (validated like the wrapper does). [`LlmModel.qml`](modules/hud/LlmModel.qml) reads the daemon state from `$XDG_RUNTIME_DIR/llm-wrapper.json`, drives it only through its CLI, and keeps the default provider in the Quickshell state directory; the default is selected whenever the wrapper starts.
+A small tab on the frame's top edge ([`LlmProviders.qml`](modules/hud/LlmProviders.qml)) shows the active provider with its icon. Clicking it opens the provider panel over the wrapper window, inside the frame: one card per provider with its favicon in grayscale, the active one inverted and the default tagged `DEF`. Click a card to switch instantly; hover it to set the default or remove it (two clicks); the form below adds a provider by name and URL (validated like the wrapper does). `Escape` closes the panel and returns the keyboard to the wrapper. [`LlmModel.qml`](modules/hud/LlmModel.qml) reads the daemon state from `$XDG_RUNTIME_DIR/llm-wrapper.json`, drives it only through its CLI, keeps the default provider in the Quickshell state directory (selected whenever the wrapper starts), and caches one 128 px favicon per provider host from Google's favicon service in the Quickshell cache directory.
 
-![LLM panel with the provider rail](docs/screenshots/llm-hud.png)
+![LLM panel with the provider panel open](docs/screenshots/llm-hud.png)
 
 ### Session and Connectivity HUD
 
@@ -259,7 +259,7 @@ Available controls:
 │   └── hud/                # Overlay HUDs
 │       ├── LlmHud.qml          # LLM companion frame, wrapper sync
 │       ├── LlmModel.qml        # llm-wrapper state, default provider, CLI commands
-│       ├── LlmProviders.qml    # provider rail and editor
+│       ├── LlmProviders.qml    # provider tab and panel
 │       ├── DeviceMenu.qml      # Wi-Fi and Bluetooth side drawer (view)
 │       ├── WifiModel.qml       # nmcli state and actions
 │       ├── BluetoothModel.qml  # native BlueZ state and actions
