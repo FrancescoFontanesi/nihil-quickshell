@@ -288,7 +288,6 @@ Item {
                 height: 28
 
                 Text {
-                    id: microLabel
                     x: 0; y: 0
                     text: "APP · INDEX"
                     color: Hud.cnTextMuted

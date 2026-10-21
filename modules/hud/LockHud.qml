@@ -24,7 +24,7 @@ Item {
     property int initY: Math.round((height - (2*s)) / 2)
     property int finalY: Math.round((height - rectH) / 2)
 
-    // Animations synchronized with ChatGPTHud.qml
+    // Animations synchronized with LlmHud.qml
     property int staggerStep: 60
     property int animDur: 360
     property real overshoot: 0.8

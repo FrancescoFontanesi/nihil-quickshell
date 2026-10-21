@@ -164,7 +164,6 @@ Item {
                     font.letterSpacing: 1.2
                 }
                 CnButton {
-                    id: closeBtn
                     x: content.width - width
                     anchors.verticalCenter: title.verticalCenter
                     width: 22
@@ -239,7 +238,6 @@ Item {
                                 fallback: card.provider
                             }
                             Item {
-                                id: tag
                                 visible: card.isDefault
                                 x: card.width - 16 - width
                                 y: 16

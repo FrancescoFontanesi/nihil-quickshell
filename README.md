@@ -278,9 +278,9 @@ These values depend on the original system and should be reviewed after cloning:
 
 - `shell.qml`: LLM wrapper path, edge frame sources, and overlay geometry. Font and colour tokens are defined once in [`modules/common/Hud.qml`](modules/common/Hud.qml).
 - `modules/bar/EdgeOverlayLayout.qml`: edge thickness and indicator positions.
-- `modules/common/HudDrawer.qml`: shared `drawerMargin` and `titleSize`, used by the clock and battery drawers.
+- `modules/common/HudDrawer.qml`: shared `drawerMargin`, `drawerWidth` and `drawerHeight`, used by the clock and battery drawers.
 - `modules/bar/HudClockDrawer.qml`: text sizes.
-- `modules/bar/HudBatteryDrawer.qml`: text sizes and telemetry interval. Its health/cycle reads use `BAT1`; the CPU temperature comes from the thermal zone with type `x86_pkg_temp`, falling back to `TCPU`, then `thermal_zone0`.
+- `modules/bar/HudBatteryDrawer.qml`: text sizes and telemetry interval. Its health/cycle reads use the first `BAT*` supply; the CPU temperature comes from the thermal zone with type `x86_pkg_temp`, falling back to `TCPU`, then `thermal_zone0`.
 - `modules/hud/LauncherHud.qml`: dimensions, maximum result count, and background asset.
 - `hyprland.conf`: use the device class supported by your `brightnessctl` installation.
 

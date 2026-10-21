@@ -200,7 +200,6 @@ Rectangle {
 
         // Status strip
         Item {
-            id: statusStrip
             x: 0; y: 48
             width: parent.width
             height: 20

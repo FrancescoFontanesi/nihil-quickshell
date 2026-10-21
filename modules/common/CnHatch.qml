@@ -2,7 +2,6 @@ import QtQuick 2.15
 
 // 45° hatching: the design system's mark for critical actions and errors.
 Canvas {
-    id: hatch
     property color ink: Hud.cnInk
     property int pitch: 4
 

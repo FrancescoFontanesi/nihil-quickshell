@@ -26,7 +26,6 @@ Item {
 
     // --- Background Surface (Unified with root dimensions) ---
     Rectangle {
-        id: bgRect
         z: 0
         anchors.fill: parent
         color: root.drawerOpen ? '#d8050607' : (clockMouse.containsMouse ? '#c00a0c0e' : '#a8050607')

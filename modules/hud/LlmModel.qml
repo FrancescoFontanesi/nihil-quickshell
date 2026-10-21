@@ -137,9 +137,8 @@ Scope {
         }
     }
 
-    // shortcut: the state file is replaced atomically; if the watch drops it, this
-    // poll (only while the daemon is gone or the HUD asks) picks the daemon up again.
-    function refresh() { stateFile.reload() }
+    // The state file is replaced atomically; if the watch drops it, this poll
+    // (only while the daemon is gone) picks the daemon up again.
     Timer {
         interval: 5000
         repeat: true

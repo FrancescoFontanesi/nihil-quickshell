@@ -74,7 +74,6 @@ HudDrawer {
     }
 
     Timer {
-        id: weatherTimer
         interval: 1200000 // 20 minutes
         repeat: true
         running: root.open

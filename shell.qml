@@ -6,8 +6,6 @@ import "./modules/bar"
 import "./modules/hud"
 
 ShellRoot {
-    id: root
-
     // Screen-edge chrome: top bar (clock, workspaces), bottom bar (battery, volume,
     // brightness), decorative left/right strips, and their flyout drawers.
     EdgeOverlayLayout {
